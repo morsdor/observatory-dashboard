@@ -1,2 +1,5 @@
 export { FilterInput } from './FilterInput'
 export { FilterPanel } from './FilterPanel'
+export { AdvancedFilterBuilder } from './AdvancedFilterBuilder'
+export { DateRangeFilter, CompactDateRangeFilter } from './DateRangeFilter'
+export { CategoricalFilter, CompactCategoricalFilter } from './CategoricalFilter'

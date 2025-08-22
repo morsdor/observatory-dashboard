@@ -1,10 +1,18 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { FilterCriteria, FilterCondition } from '../../types'
+import { FilterCriteria, FilterCondition, FilterGroup } from '../../types'
+
+interface FilterPerformance {
+  filterTime: number
+  resultCount: number
+  totalCount: number
+  cacheHitRate?: number
+}
 
 interface FilterState {
   filterCriteria: FilterCriteria
   activeFilters: FilterCondition[]
   isFiltering: boolean
+  performance: FilterPerformance
 }
 
 const defaultFilterCriteria: FilterCriteria = {
@@ -16,7 +24,12 @@ const defaultFilterCriteria: FilterCriteria = {
 const initialState: FilterState = {
   filterCriteria: defaultFilterCriteria,
   activeFilters: [],
-  isFiltering: false
+  isFiltering: false,
+  performance: {
+    filterTime: 0,
+    resultCount: 0,
+    totalCount: 0
+  }
 }
 
 const filterSlice = createSlice({
@@ -56,6 +69,35 @@ const filterSlice = createSlice({
     
     setIsFiltering: (state, action: PayloadAction<boolean>) => {
       state.isFiltering = action.payload
+    },
+    
+    updateFilterPerformance: (state, action: PayloadAction<FilterPerformance>) => {
+      state.performance = action.payload
+    },
+    
+    addFilterGroup: (state, action: PayloadAction<FilterGroup>) => {
+      state.filterCriteria = {
+        ...state.filterCriteria,
+        grouping: [...state.filterCriteria.grouping, action.payload]
+      }
+    },
+    
+    removeFilterGroup: (state, action: PayloadAction<string>) => {
+      const groupId = action.payload
+      state.filterCriteria = {
+        ...state.filterCriteria,
+        grouping: state.filterCriteria.grouping.filter(group => group.id !== groupId)
+      }
+    },
+    
+    updateFilterGroup: (state, action: PayloadAction<FilterGroup>) => {
+      const updatedGroup = action.payload
+      state.filterCriteria = {
+        ...state.filterCriteria,
+        grouping: state.filterCriteria.grouping.map(group => 
+          group.id === updatedGroup.id ? updatedGroup : group
+        )
+      }
     }
   }
 })
@@ -65,6 +107,10 @@ export const {
   addFilterCondition, 
   removeFilterCondition, 
   clearFilters, 
-  setIsFiltering 
+  setIsFiltering,
+  updateFilterPerformance,
+  addFilterGroup,
+  removeFilterGroup,
+  updateFilterGroup
 } = filterSlice.actions
 export default filterSlice.reducer
