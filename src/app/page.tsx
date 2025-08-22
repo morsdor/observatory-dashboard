@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard'
 import { RealTimeDashboard } from '@/components/dashboard/RealTimeDashboard'
+import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { Provider } from 'react-redux'
 import { store } from '@/stores/dashboardStore'
 
@@ -33,19 +34,22 @@ function DashboardContent() {
   }
 
   return (
-    <DashboardLayout
-      connectionStatus={connectionStatus}
-      onRefresh={handleRefresh}
-      onSettings={handleSettings}
-      isLoading={isLoading}
-    >
-      <div className="p-6">
-        <RealTimeDashboard 
-          websocketUrl="ws://localhost:8080"
-          maxBufferSize={100000}
-        />
-      </div>
-    </DashboardLayout>
+    <div className="min-h-screen bg-background">
+      <MainNavigation />
+      <DashboardLayout
+        connectionStatus={connectionStatus}
+        onRefresh={handleRefresh}
+        onSettings={handleSettings}
+        isLoading={isLoading}
+      >
+        <div className="p-6">
+          <RealTimeDashboard 
+            websocketUrl="ws://localhost:8080"
+            maxBufferSize={100000}
+          />
+        </div>
+      </DashboardLayout>
+    </div>
   )
 }
 

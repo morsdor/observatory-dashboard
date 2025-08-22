@@ -1069,13 +1069,3 @@ export function clearPatternState(): void {
 export function getPatternState(): Map<string, any> {
   return new Map(patternState)
 }
-
-// Export all the new specialized generators
-export {
-  generateBusinessMetricsData,
-  generateIoTSensorData,
-  generateFinancialData,
-  generateNetworkMonitoringData,
-  generateStreamingTestData,
-  generateScenarioTestData
-}
