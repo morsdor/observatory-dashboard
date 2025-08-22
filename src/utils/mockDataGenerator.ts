@@ -1,6 +1,35 @@
 import type { DataPoint } from '../types'
 import { validateData, DataPointSchema } from '../types/schemas'
 
+// Advanced pattern configuration for realistic data generation
+export interface DataPattern {
+  type: 'linear' | 'exponential' | 'cyclical' | 'random' | 'step' | 'sine' | 'cosine' | 'sawtooth' | 'square'
+  amplitude?: number
+  frequency?: number
+  phase?: number
+  offset?: number
+  trend?: number
+  decay?: number
+  noise?: number
+}
+
+// Seasonality configuration
+export interface SeasonalityConfig {
+  enabled: boolean
+  dailyPattern?: DataPattern
+  weeklyPattern?: DataPattern
+  monthlyPattern?: DataPattern
+  yearlyPattern?: DataPattern
+}
+
+// Anomaly injection configuration
+export interface AnomalyConfig {
+  enabled: boolean
+  probability?: number // 0-1, chance of anomaly per data point
+  types?: ('spike' | 'drop' | 'drift' | 'outlier')[]
+  intensity?: number // 1-10, how extreme the anomalies are
+}
+
 // Configuration for data generation patterns
 export interface DataGenerationConfig {
   startDate?: Date
@@ -11,7 +40,10 @@ export interface DataGenerationConfig {
   valueRange?: { min: number; max: number }
   trendType?: 'linear' | 'exponential' | 'cyclical' | 'random'
   noiseLevel?: number // 0-1, amount of random noise
-  seasonality?: boolean
+  seasonality?: boolean | SeasonalityConfig
+  patterns?: Record<string, DataPattern> // Category-specific patterns
+  anomalies?: AnomalyConfig
+  correlations?: Array<{ categories: string[]; strength: number }> // Cross-category correlations
 }
 
 // Default configuration
@@ -126,7 +158,134 @@ function getThresholdForCategory(category: string): number {
   return thresholds[category] || 80
 }
 
-// Calculate base value using different trend patterns
+// Apply a specific pattern to generate values
+function applyPattern(pattern: DataPattern, time: number, baseValue: number): number {
+  let value = baseValue + (pattern.offset || 0)
+  const amplitude = pattern.amplitude || 10
+  const frequency = pattern.frequency || 0.1
+  const phase = pattern.phase || 0
+  
+  switch (pattern.type) {
+    case 'linear':
+      value += (pattern.trend || 0) * time
+      break
+    case 'exponential':
+      value += amplitude * Math.exp((pattern.trend || 0.01) * time)
+      break
+    case 'sine':
+      value += amplitude * Math.sin(frequency * time + phase)
+      break
+    case 'cosine':
+      value += amplitude * Math.cos(frequency * time + phase)
+      break
+    case 'cyclical':
+      value += amplitude * Math.sin(frequency * time + phase)
+      break
+    case 'sawtooth':
+      value += amplitude * (2 * ((frequency * time + phase) % 1) - 1)
+      break
+    case 'square':
+      value += amplitude * Math.sign(Math.sin(frequency * time + phase))
+      break
+    case 'step':
+      value += amplitude * Math.floor((frequency * time + phase) % 4) / 4
+      break
+    case 'random':
+      value += (Math.random() - 0.5) * 2 * amplitude
+      break
+  }
+  
+  // Apply decay if specified
+  if (pattern.decay) {
+    value *= Math.exp(-pattern.decay * time)
+  }
+  
+  // Add noise
+  if (pattern.noise) {
+    value += (Math.random() - 0.5) * 2 * pattern.noise * Math.abs(value)
+  }
+  
+  return value
+}
+
+// Apply seasonality patterns
+function applySeasonality(
+  timestamp: Date,
+  baseValue: number,
+  seasonality: SeasonalityConfig,
+  valueRange: { min: number; max: number }
+): number {
+  if (!seasonality.enabled) return baseValue
+  
+  let seasonalValue = baseValue
+  const range = valueRange.max - valueRange.min
+  
+  // Daily pattern (24-hour cycle)
+  if (seasonality.dailyPattern) {
+    const hourOfDay = timestamp.getHours() + timestamp.getMinutes() / 60
+    const dailyTime = (hourOfDay / 24) * 2 * Math.PI
+    seasonalValue += applyPattern(seasonality.dailyPattern, dailyTime, 0) * range * 0.1
+  }
+  
+  // Weekly pattern (7-day cycle)
+  if (seasonality.weeklyPattern) {
+    const dayOfWeek = timestamp.getDay()
+    const weeklyTime = (dayOfWeek / 7) * 2 * Math.PI
+    seasonalValue += applyPattern(seasonality.weeklyPattern, weeklyTime, 0) * range * 0.05
+  }
+  
+  // Monthly pattern (30-day cycle)
+  if (seasonality.monthlyPattern) {
+    const dayOfMonth = timestamp.getDate()
+    const monthlyTime = (dayOfMonth / 30) * 2 * Math.PI
+    seasonalValue += applyPattern(seasonality.monthlyPattern, monthlyTime, 0) * range * 0.03
+  }
+  
+  // Yearly pattern (365-day cycle)
+  if (seasonality.yearlyPattern) {
+    const dayOfYear = Math.floor((timestamp.getTime() - new Date(timestamp.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24))
+    const yearlyTime = (dayOfYear / 365) * 2 * Math.PI
+    seasonalValue += applyPattern(seasonality.yearlyPattern, yearlyTime, 0) * range * 0.02
+  }
+  
+  return seasonalValue
+}
+
+// Inject anomalies into data
+function injectAnomalies(
+  value: number,
+  timestamp: Date,
+  category: string,
+  anomalies: AnomalyConfig,
+  valueRange: { min: number; max: number }
+): number {
+  if (!anomalies.enabled || Math.random() > (anomalies.probability || 0.01)) {
+    return value
+  }
+  
+  const types = anomalies.types || ['spike', 'drop', 'outlier']
+  const anomalyType = types[Math.floor(Math.random() * types.length)]
+  const intensity = anomalies.intensity || 3
+  const range = valueRange.max - valueRange.min
+  
+  switch (anomalyType) {
+    case 'spike':
+      return Math.min(valueRange.max, value + range * intensity * 0.1)
+    case 'drop':
+      return Math.max(valueRange.min, value - range * intensity * 0.1)
+    case 'drift':
+      // Gradual shift - would need state tracking for proper implementation
+      return value + (Math.random() - 0.5) * range * intensity * 0.05
+    case 'outlier':
+      return Math.random() > 0.5 
+        ? Math.min(valueRange.max, value + range * intensity * 0.15)
+        : Math.max(valueRange.min, value - range * intensity * 0.15)
+    default:
+      return value
+  }
+}
+
+// Calculate base value using advanced patterns
 function calculateBaseValue(
   timestamp: Date,
   startDate: Date,
@@ -136,39 +295,50 @@ function calculateBaseValue(
 ): number {
   const timeProgress = (timestamp.getTime() - startDate.getTime()) / 
                      (config.endDate.getTime() - startDate.getTime())
+  const timeInSeconds = (timestamp.getTime() - startDate.getTime()) / 1000
   
   const { min, max } = config.valueRange
   const range = max - min
   
   let baseValue = min + range * 0.5 // Start at middle
   
-  // Apply trend
-  switch (config.trendType) {
-    case 'linear':
-      baseValue += range * 0.3 * timeProgress
-      break
-    case 'exponential':
-      baseValue += range * 0.3 * Math.pow(timeProgress, 2)
-      break
-    case 'cyclical':
-      const cycles = 3 // Number of cycles over the time period
-      baseValue += range * 0.2 * Math.sin(timeProgress * cycles * 2 * Math.PI)
-      break
-    case 'random':
-      baseValue += (Math.random() - 0.5) * range * 0.4
-      break
+  // Apply category-specific pattern if available
+  if (config.patterns && config.patterns[category]) {
+    baseValue = applyPattern(config.patterns[category], timeInSeconds, baseValue)
+  } else {
+    // Apply legacy trend type
+    switch (config.trendType) {
+      case 'linear':
+        baseValue += range * 0.3 * timeProgress
+        break
+      case 'exponential':
+        baseValue += range * 0.3 * Math.pow(timeProgress, 2)
+        break
+      case 'cyclical':
+        const cycles = 3
+        baseValue += range * 0.2 * Math.sin(timeProgress * cycles * 2 * Math.PI)
+        break
+      case 'random':
+        baseValue += (Math.random() - 0.5) * range * 0.4
+        break
+    }
   }
   
-  // Add seasonality (daily pattern)
+  // Apply seasonality
   if (config.seasonality) {
-    const hourOfDay = timestamp.getHours()
-    const dailyPattern = Math.sin((hourOfDay / 24) * 2 * Math.PI - Math.PI / 2) // Peak at noon
-    baseValue += range * 0.15 * dailyPattern
+    if (typeof config.seasonality === 'boolean' && config.seasonality) {
+      // Legacy daily pattern
+      const hourOfDay = timestamp.getHours()
+      const dailyPattern = Math.sin((hourOfDay / 24) * 2 * Math.PI - Math.PI / 2)
+      baseValue += range * 0.15 * dailyPattern
+    } else if (typeof config.seasonality === 'object') {
+      baseValue = applySeasonality(timestamp, baseValue, config.seasonality, config.valueRange)
+    }
   }
   
   // Add source-specific offset
   const sourceHash = source.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  const sourceOffset = (sourceHash % 20 - 10) / 100 * range // ±10% based on source
+  const sourceOffset = (sourceHash % 20 - 10) / 100 * range
   baseValue += sourceOffset
   
   // Add category-specific baseline
@@ -181,6 +351,11 @@ function calculateBaseValue(
   }
   const categoryBaseline = categoryBaselines[category] || 0.4
   baseValue = min + (baseValue - min) * categoryBaseline + range * categoryBaseline
+  
+  // Apply anomalies if configured
+  if (config.anomalies) {
+    baseValue = injectAnomalies(baseValue, timestamp, category, config.anomalies, config.valueRange)
+  }
   
   return Math.max(min, Math.min(max, baseValue))
 }

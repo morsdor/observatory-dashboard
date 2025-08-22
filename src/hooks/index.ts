@@ -2,3 +2,6 @@
 // Hooks will be added as we implement specific features
 
 export * from './useLocalStorage'
+export * from './useWebSocket'
+export * from './useDataBuffer'
+export * from './useDataStream'
