@@ -178,7 +178,7 @@ export function WebSocketDemo() {
                                             </div>
                                         </div>
                                         <span className="text-xs text-gray-500">
-                                            {point.timestamp.toLocaleTimeString()}
+                                            {point.timestamp}
                                         </span>
                                     </div>
                                     {point.metadata?.injected && (

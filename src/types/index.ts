@@ -17,7 +17,7 @@ export interface DashboardConfig {
 // Core data model for streaming data points
 export interface DataPoint {
   id: string
-  timestamp: Date
+  timestamp: Date | string
   value: number
   category: string
   metadata: Record<string, any>

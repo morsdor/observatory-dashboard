@@ -51,7 +51,7 @@ const generateMockData = (count: number, startIndex = 0): DataPoint[] => {
 
     return {
       id: `${category}-${source}-${index}`,
-      timestamp,
+      timestamp: timestamp.toISOString(),
       value: Math.round(value * 100) / 100,
       category,
       source,
@@ -193,6 +193,7 @@ export function DataTableDemo() {
 
     const interval = setInterval(() => {
       const newData = generateMockData(50, dataCount) // Add 50 new points
+      newData
       dispatch(addDataPoints(newData))
       setDataCount(prev => prev + 50)
     }, 1000) // Every second

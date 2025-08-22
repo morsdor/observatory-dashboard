@@ -3,7 +3,7 @@ import { z } from 'zod'
 // Zod schema for DataPoint validation
 export const DataPointSchema = z.object({
   id: z.string().min(1, 'ID is required'),
-  timestamp: z.date(),
+  timestamp: z.string(),
   value: z.number().finite('Value must be a finite number'),
   category: z.string().min(1, 'Category is required'),
   metadata: z.record(z.any()).default({}),
