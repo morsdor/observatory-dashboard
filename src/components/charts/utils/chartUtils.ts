@@ -277,3 +277,182 @@ export function validateChartData(data: DataPoint[]): {
     errors
   }
 }
+
+/**
+ * Draw crosshair lines on canvas
+ */
+export function drawCrosshair(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  style: {
+    color?: string
+    lineWidth?: number
+    dashPattern?: number[]
+  } = {}
+): void {
+  const {
+    color = '#6b7280',
+    lineWidth = 1,
+    dashPattern = [4, 4]
+  } = style
+
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = lineWidth
+  ctx.setLineDash(dashPattern)
+
+  // Draw vertical line
+  ctx.beginPath()
+  ctx.moveTo(x, 0)
+  ctx.lineTo(x, height)
+  ctx.stroke()
+
+  // Draw horizontal line
+  ctx.beginPath()
+  ctx.moveTo(0, y)
+  ctx.lineTo(width, y)
+  ctx.stroke()
+
+  ctx.setLineDash([])
+  ctx.restore()
+}
+
+/**
+ * Draw highlighted data point on canvas
+ */
+export function drawDataPointHighlight(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  style: {
+    radius?: number
+    color?: string
+    glowColor?: string
+    centerColor?: string
+  } = {}
+): void {
+  const {
+    radius = 4,
+    color = '#3b82f6',
+    glowColor = color + '40',
+    centerColor = '#ffffff'
+  } = style
+
+  ctx.save()
+
+  // Draw outer circle (glow effect)
+  ctx.fillStyle = glowColor
+  ctx.beginPath()
+  ctx.arc(x, y, radius + 2, 0, 2 * Math.PI)
+  ctx.fill()
+
+  // Draw main circle
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.arc(x, y, radius, 0, 2 * Math.PI)
+  ctx.fill()
+
+  // Draw center dot
+  ctx.fillStyle = centerColor
+  ctx.beginPath()
+  ctx.arc(x, y, radius - 1, 0, 2 * Math.PI)
+  ctx.fill()
+
+  ctx.restore()
+}
+
+/**
+ * Check if mouse position is near a data point
+ */
+export function isNearDataPoint(
+  mouseX: number,
+  mouseY: number,
+  pointX: number,
+  pointY: number,
+  threshold: number = 30
+): boolean {
+  const distance = calculateDistance(mouseX, mouseY, pointX, pointY)
+  return distance <= threshold
+}
+
+/**
+ * Get optimal tooltip position to avoid screen edges
+ */
+export function getTooltipPosition(
+  mouseX: number,
+  mouseY: number,
+  tooltipWidth: number = 200,
+  tooltipHeight: number = 100,
+  containerWidth: number,
+  containerHeight: number,
+  offset: { x: number; y: number } = { x: 10, y: -10 }
+): { x: number; y: number; placement: 'right' | 'left' | 'top' | 'bottom' } {
+  let x = mouseX + offset.x
+  let y = mouseY + offset.y
+  let placement: 'right' | 'left' | 'top' | 'bottom' = 'right'
+
+  // Adjust horizontal position
+  if (x + tooltipWidth > containerWidth) {
+    x = mouseX - tooltipWidth - Math.abs(offset.x)
+    placement = 'left'
+  }
+
+  // Adjust vertical position
+  if (y < 0) {
+    y = mouseY + Math.abs(offset.y)
+    placement = placement === 'left' ? 'left' : 'bottom'
+  } else if (y + tooltipHeight > containerHeight) {
+    y = mouseY - tooltipHeight + offset.y
+    placement = placement === 'left' ? 'left' : 'top'
+  }
+
+  return { x, y, placement }
+}
+
+/**
+ * Throttle function for performance optimization
+ */
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: NodeJS.Timeout | null = null
+  let lastExecTime = 0
+
+  return (...args: Parameters<T>) => {
+    const currentTime = Date.now()
+
+    if (currentTime - lastExecTime > delay) {
+      func(...args)
+      lastExecTime = currentTime
+    } else {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      timeoutId = setTimeout(() => {
+        func(...args)
+        lastExecTime = Date.now()
+      }, delay - (currentTime - lastExecTime))
+    }
+  }
+}
+
+/**
+ * Debounce function for performance optimization
+ */
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: NodeJS.Timeout | null = null
+
+  return (...args: Parameters<T>) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+    timeoutId = setTimeout(() => func(...args), delay)
+  }
+}

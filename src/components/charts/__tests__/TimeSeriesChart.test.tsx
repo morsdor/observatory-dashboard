@@ -22,20 +22,27 @@ const mockLine = {
   curve: jest.fn().mockReturnThis()
 }
 
+// Create proper scale function mocks
+const createMockTimeScale = () => {
+  const scaleFn = jest.fn(() => 100)
+  scaleFn.domain = jest.fn().mockReturnValue([new Date('2023-01-01T10:00:00Z'), new Date('2023-01-01T12:00:00Z')])
+  scaleFn.range = jest.fn().mockReturnThis()
+  scaleFn.ticks = jest.fn(() => [new Date('2023-01-01T10:00:00Z'), new Date('2023-01-01T12:00:00Z')])
+  scaleFn.invert = jest.fn(() => new Date('2023-01-01T11:00:00Z'))
+  return scaleFn
+}
+
+const createMockLinearScale = () => {
+  const scaleFn = jest.fn(() => 200)
+  scaleFn.domain = jest.fn().mockReturnValue([0, 50])
+  scaleFn.range = jest.fn().mockReturnThis()
+  scaleFn.ticks = jest.fn(() => [0, 25, 50])
+  return scaleFn
+}
+
 jest.mock('d3', () => ({
-  scaleTime: jest.fn(() => ({
-    domain: jest.fn().mockReturnThis(),
-    range: jest.fn().mockReturnThis(),
-    ticks: jest.fn(() => [new Date('2023-01-01T10:00:00Z'), new Date('2023-01-01T12:00:00Z')]),
-    invert: jest.fn(() => new Date('2023-01-01T11:00:00Z')),
-    __call: jest.fn().mockReturnThis()
-  })),
-  scaleLinear: jest.fn(() => ({
-    domain: jest.fn().mockReturnThis(),
-    range: jest.fn().mockReturnThis(),
-    ticks: jest.fn(() => [0, 25, 50]),
-    __call: jest.fn().mockReturnThis()
-  })),
+  scaleTime: jest.fn(() => createMockTimeScale()),
+  scaleLinear: jest.fn(() => createMockLinearScale()),
   line: jest.fn(() => mockLine),
   extent: jest.fn(() => [new Date('2023-01-01T10:00:00Z'), new Date('2023-01-01T12:00:00Z')]),
   timeFormat: jest.fn(() => jest.fn(() => '12:00')),
@@ -51,7 +58,7 @@ jest.mock('d3', () => ({
   select: jest.fn(() => mockSelect)
 }))
 
-// Mock canvas context
+// Mock canvas context with all required properties
 const mockContext = {
   clearRect: jest.fn(),
   scale: jest.fn(),
@@ -62,11 +69,16 @@ const mockContext = {
   moveTo: jest.fn(),
   lineTo: jest.fn(),
   stroke: jest.fn(),
+  fill: jest.fn(),
+  arc: jest.fn(),
   fillText: jest.fn(),
   measureText: jest.fn(() => ({ width: 50 })),
   setLineDash: jest.fn(),
   rect: jest.fn(),
-  clip: jest.fn()
+  clip: jest.fn(),
+  strokeStyle: '#3b82f6',
+  fillStyle: '#ffffff',
+  lineWidth: 2
 }
 
 Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
@@ -402,5 +414,165 @@ describe('TimeSeriesChart', () => {
     const d3 = require('d3')
     expect(d3.timeFormat).toHaveBeenCalledWith('%H:%M')
     expect(d3.format).toHaveBeenCalledWith('.2f')
+  })
+
+  describe('Interactive Features', () => {
+    it('should show crosshair by default', () => {
+      render(
+        <TimeSeriesChart
+          data={mockData}
+          width={800}
+          height={400}
+          showCrosshair={true}
+        />
+      )
+
+      const canvas = screen.getByRole('img', { hidden: true })
+      
+      fireEvent.mouseMove(canvas, {
+        clientX: 100,
+        clientY: 100
+      })
+
+      // Should draw crosshair lines
+      expect(mockContext.setLineDash).toHaveBeenCalledWith([4, 4])
+    })
+
+    it('should hide crosshair when disabled', () => {
+      render(
+        <TimeSeriesChart
+          data={mockData}
+          width={800}
+          height={400}
+          showCrosshair={false}
+        />
+      )
+
+      const canvas = screen.getByRole('img', { hidden: true })
+      
+      fireEvent.mouseMove(canvas, {
+        clientX: 100,
+        clientY: 100
+      })
+
+      // Should not draw crosshair
+      const dashCalls = mockContext.setLineDash.mock.calls.filter(call => 
+        call[0].length > 0 && call[0][0] === 4
+      )
+      expect(dashCalls).toHaveLength(0)
+    })
+
+    it('should highlight data points on hover', () => {
+      render(
+        <TimeSeriesChart
+          data={mockData}
+          width={800}
+          height={400}
+          highlightRadius={6}
+        />
+      )
+
+      const canvas = screen.getByRole('img', { hidden: true })
+      
+      fireEvent.mouseMove(canvas, {
+        clientX: 100,
+        clientY: 100
+      })
+
+      // Should draw highlight circles
+      expect(mockContext.arc).toHaveBeenCalled()
+      expect(mockContext.fill).toHaveBeenCalled()
+    })
+
+    it('should show tooltip by default', () => {
+      render(
+        <TimeSeriesChart
+          data={mockData}
+          width={800}
+          height={400}
+          showTooltip={true}
+        />
+      )
+
+      const canvas = screen.getByRole('img', { hidden: true })
+      
+      fireEvent.mouseMove(canvas, {
+        clientX: 100,
+        clientY: 100
+      })
+
+      // Should render tooltip content
+      expect(screen.getByText('test')).toBeInTheDocument()
+    })
+
+    it('should hide tooltip when disabled', () => {
+      render(
+        <TimeSeriesChart
+          data={mockData}
+          width={800}
+          height={400}
+          showTooltip={false}
+        />
+      )
+
+      const canvas = screen.getByRole('img', { hidden: true })
+      
+      fireEvent.mouseMove(canvas, {
+        clientX: 100,
+        clientY: 100
+      })
+
+      // Should not render tooltip
+      expect(screen.queryByText('test')).not.toBeInTheDocument()
+    })
+
+    it('should use custom formatters', () => {
+      const formatValue = (value: number) => `${value}%`
+      const formatTimestamp = (timestamp: Date) => 'Custom Time'
+      
+      render(
+        <TimeSeriesChart
+          data={mockData}
+          width={800}
+          height={400}
+          formatValue={formatValue}
+          formatTimestamp={formatTimestamp}
+        />
+      )
+
+      const canvas = screen.getByRole('img', { hidden: true })
+      
+      fireEvent.mouseMove(canvas, {
+        clientX: 100,
+        clientY: 100
+      })
+
+      // Should use custom formatters in tooltip
+      expect(screen.getByText('Custom Time')).toBeInTheDocument()
+    })
+
+    it('should clear hover state on mouse leave', () => {
+      const onHover = jest.fn()
+      
+      render(
+        <TimeSeriesChart
+          data={mockData}
+          width={800}
+          height={400}
+          onHover={onHover}
+        />
+      )
+
+      const canvas = screen.getByRole('img', { hidden: true })
+      
+      fireEvent.mouseMove(canvas, {
+        clientX: 100,
+        clientY: 100
+      })
+
+      fireEvent.mouseLeave(canvas)
+
+      expect(onHover).toHaveBeenLastCalledWith(null)
+    })
   })
 })
