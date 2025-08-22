@@ -49,11 +49,15 @@ const dataSlice = createSlice({
       state.filteredData = action.payload
     },
     
+    updateFilteredData: (state, action: PayloadAction<DataPoint[]>) => {
+      state.filteredData = action.payload
+    },
+    
     setMaxBufferSize: (state, action: PayloadAction<number>) => {
       state.maxBufferSize = action.payload
     }
   }
 })
 
-export const { addDataPoints, setRawData, clearData, setFilteredData, setMaxBufferSize } = dataSlice.actions
+export const { addDataPoints, setRawData, clearData, setFilteredData, updateFilteredData, setMaxBufferSize } = dataSlice.actions
 export default dataSlice.reducer
