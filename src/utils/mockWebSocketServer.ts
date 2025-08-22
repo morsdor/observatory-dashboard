@@ -1,4 +1,5 @@
 import { DataPoint } from '@/types'
+import { createScenarioConfig, generateDataPoint, type DataGenerationConfig } from './mockDataGenerator'
 
 export interface MockServerConfig {
   port?: number
@@ -9,6 +10,11 @@ export interface MockServerConfig {
   burstInterval?: number
   burstDuration?: number
   burstMultiplier?: number
+  scenario?: 'normal' | 'high_load' | 'system_failure' | 'maintenance' | 'peak_hours' | 'weekend'
+  networkLatency?: number // Simulated network delay in ms
+  dropRate?: number // 0-1, probability of dropping messages
+  enableReconnectTesting?: boolean
+  reconnectInterval?: number
 }
 
 export interface DataGenerationPattern {
@@ -25,9 +31,13 @@ export class MockWebSocketServer {
   private clients: Set<any> = new Set()
   private intervalId: NodeJS.Timeout | null = null
   private burstTimeoutId: NodeJS.Timeout | null = null
+  private reconnectTimeoutId: NodeJS.Timeout | null = null
   private isRunning = false
   private dataCounter = 0
   private startTime = Date.now()
+  private scenarioConfig: Partial<DataGenerationConfig> = {}
+  private messageQueue: DataPoint[][] = []
+  private droppedMessages = 0
 
   constructor(private config: MockServerConfig = {}) {
     this.config = {
@@ -39,7 +49,17 @@ export class MockWebSocketServer {
       burstInterval: 30000, // 30 seconds
       burstDuration: 5000,  // 5 seconds
       burstMultiplier: 10,
+      scenario: 'normal',
+      networkLatency: 0,
+      dropRate: 0,
+      enableReconnectTesting: false,
+      reconnectInterval: 60000, // 1 minute
       ...config
+    }
+    
+    // Load scenario configuration
+    if (this.config.scenario) {
+      this.scenarioConfig = createScenarioConfig(this.config.scenario)
     }
   }
 
@@ -96,7 +116,6 @@ export class MockWebSocketServer {
   private startBrowserMockServer() {
     // For browser testing, we'll create a mock that can be used with the WebSocket hook
     console.log('Starting browser mock WebSocket server simulation')
-    this.isRunning = true
     this.startDataGeneration()
   }
 
@@ -156,23 +175,37 @@ export class MockWebSocketServer {
     const category = categories[Math.floor(Math.random() * categories.length)]
     const source = sources[Math.floor(Math.random() * sources.length)]
     
-    // Generate realistic values based on category
-    let value = this.generateValueForCategory(category)
+    // Use advanced data generator if scenario config is available
+    if (this.scenarioConfig.patterns && this.scenarioConfig.patterns[category]) {
+      const baseValue = this.generateValueForCategory(category)
+      return generateDataPoint(now, category, source, baseValue, {
+        ...this.scenarioConfig,
+        categories: [category],
+        sources: [source]
+      })
+    }
     
-    // Add some time-based patterns
+    // Fallback to legacy generation
+    let value = this.generateValueForCategory(category)
     const timePattern = this.generateTimeBasedPattern(now)
-    value = value * (1 + timePattern * 0.1) // 10% variation based on time
+    value = value * (1 + timePattern * 0.1)
 
     return {
       id: `${source}-${category}-${this.dataCounter++}-${now.getTime()}`,
       timestamp: now,
-      value: Math.round(value * 100) / 100, // Round to 2 decimal places
+      value: Math.round(value * 100) / 100,
       category,
       source,
       metadata: {
         generated: true,
         pattern: this.getPatternForCategory(category),
-        serverTime: now.toISOString()
+        serverTime: now.toISOString(),
+        scenario: this.config.scenario || 'normal',
+        batchId: Math.floor(this.dataCounter / 10), // Group data points in batches
+        sequenceNumber: this.dataCounter,
+        unit: this.getUnitForCategory(category),
+        threshold: this.getThresholdForCategory(category),
+        status: value > this.getThresholdForCategory(category) ? 'warning' : 'normal'
       }
     }
   }
@@ -247,26 +280,63 @@ export class MockWebSocketServer {
     return patterns[category] || 'random'
   }
 
+  private getUnitForCategory(category: string): string {
+    const units: Record<string, string> = {
+      cpu: '%',
+      memory: '%',
+      network: 'Mbps',
+      disk: '%',
+      temperature: '°C'
+    }
+    return units[category] || 'units'
+  }
+
+  private getThresholdForCategory(category: string): number {
+    const thresholds: Record<string, number> = {
+      cpu: 80,
+      memory: 85,
+      network: 90,
+      disk: 90,
+      temperature: 70
+    }
+    return thresholds[category] || 80
+  }
+
   private broadcastData(dataPoints: DataPoint[]) {
+    // Simulate message dropping
+    if (this.config.dropRate && Math.random() < this.config.dropRate) {
+      this.droppedMessages++
+      return
+    }
+    
     const message = JSON.stringify(dataPoints)
     
-    if (typeof window !== 'undefined') {
-      // Browser environment - emit custom event
-      window.dispatchEvent(new CustomEvent('mockWebSocketData', {
-        detail: dataPoints
-      }))
-    } else {
-      // Node.js environment - send to WebSocket clients
-      this.clients.forEach(client => {
-        if (client.readyState === 1) { // WebSocket.OPEN
-          try {
-            client.send(message)
-          } catch (error) {
-            console.error('Error sending data to client:', error)
-            this.clients.delete(client)
+    // Simulate network latency
+    const sendMessage = () => {
+      if (typeof window !== 'undefined') {
+        // Browser environment - emit custom event
+        window.dispatchEvent(new CustomEvent('mockWebSocketData', {
+          detail: dataPoints
+        }))
+      } else {
+        // Node.js environment - send to WebSocket clients
+        this.clients.forEach(client => {
+          if (client.readyState === 1) { // WebSocket.OPEN
+            try {
+              client.send(message)
+            } catch (error) {
+              console.error('Error sending data to client:', error)
+              this.clients.delete(client)
+            }
           }
-        }
-      })
+        })
+      }
+    }
+    
+    if (this.config.networkLatency && this.config.networkLatency > 0) {
+      setTimeout(sendMessage, this.config.networkLatency)
+    } else {
+      sendMessage()
     }
   }
 
@@ -301,8 +371,48 @@ export class MockWebSocketServer {
       isRunning: this.isRunning,
       clientCount: this.clients.size,
       dataPointsGenerated: this.dataCounter,
+      droppedMessages: this.droppedMessages,
       uptime: Date.now() - this.startTime,
-      config: this.config
+      config: this.config,
+      scenario: this.config.scenario,
+      messageQueueSize: this.messageQueue.length
+    }
+  }
+  
+  // Simulate connection interruption for testing reconnection logic
+  simulateConnectionInterruption(duration: number = 5000) {
+    if (!this.isRunning) return
+    
+    console.log(`Simulating connection interruption for ${duration}ms`)
+    this.stop()
+    
+    setTimeout(() => {
+      console.log('Reconnecting after simulated interruption')
+      this.start()
+    }, duration)
+  }
+  
+  // Change scenario dynamically
+  changeScenario(scenario: 'normal' | 'high_load' | 'system_failure' | 'maintenance' | 'peak_hours' | 'weekend') {
+    this.config.scenario = scenario
+    this.scenarioConfig = createScenarioConfig(scenario)
+    console.log(`Changed to scenario: ${scenario}`)
+  }
+  
+  // Get performance metrics
+  getPerformanceMetrics() {
+    const uptime = Date.now() - this.startTime
+    const avgDataPointsPerSecond = this.dataCounter / (uptime / 1000)
+    const dropRate = this.droppedMessages / (this.dataCounter + this.droppedMessages)
+    
+    return {
+      uptime,
+      totalDataPoints: this.dataCounter,
+      droppedMessages: this.droppedMessages,
+      averageDataPointsPerSecond: avgDataPointsPerSecond,
+      actualDropRate: dropRate,
+      configuredDropRate: this.config.dropRate || 0,
+      networkLatency: this.config.networkLatency || 0
     }
   }
 
@@ -315,6 +425,91 @@ export class MockWebSocketServer {
       this.stop().then(() => {
         this.start()
       })
+    }
+  }
+
+  // Generate a batch of historical data for initial load
+  generateHistoricalBatch(count: number = 1000): DataPoint[] {
+    const batch: DataPoint[] = []
+    const now = Date.now()
+    const timeStep = 1000 // 1 second between points
+    
+    for (let i = 0; i < count; i++) {
+      const timestamp = new Date(now - (count - i) * timeStep)
+      const categories = this.config.categories || ['default']
+      const sources = this.config.sources || ['default']
+      
+      for (const category of categories) {
+        for (const source of sources) {
+          const baseValue = this.generateValueForCategory(category)
+          const dataPoint = generateDataPoint(timestamp, category, source, baseValue, {
+            ...this.scenarioConfig,
+            categories: [category],
+            sources: [source]
+          })
+          batch.push(dataPoint)
+        }
+      }
+    }
+    
+    return batch.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+  }
+
+  // Simulate data spikes for testing
+  simulateDataSpike(duration: number = 2000, multiplier: number = 5) {
+    if (!this.isRunning) return
+    
+    const originalRate = this.config.dataPointsPerSecond
+    this.config.dataPointsPerSecond = (originalRate || 10) * multiplier
+    
+    console.log(`Simulating data spike: ${this.config.dataPointsPerSecond} points/second for ${duration}ms`)
+    
+    setTimeout(() => {
+      this.config.dataPointsPerSecond = originalRate
+      console.log(`Data spike ended, returning to ${originalRate} points/second`)
+    }, duration)
+  }
+
+  // Simulate gradual load increase
+  simulateGradualLoad(targetRate: number, duration: number = 10000) {
+    if (!this.isRunning) return
+    
+    const startRate = this.config.dataPointsPerSecond || 10
+    const steps = 20
+    const stepDuration = duration / steps
+    const rateIncrement = (targetRate - startRate) / steps
+    
+    let currentStep = 0
+    const interval = setInterval(() => {
+      if (currentStep >= steps || !this.isRunning) {
+        clearInterval(interval)
+        return
+      }
+      
+      this.config.dataPointsPerSecond = Math.round(startRate + rateIncrement * currentStep)
+      console.log(`Gradual load step ${currentStep + 1}/${steps}: ${this.config.dataPointsPerSecond} points/second`)
+      currentStep++
+    }, stepDuration)
+  }
+
+  // Get detailed statistics for monitoring
+  getDetailedStats() {
+    const stats = this.getStats()
+    const metrics = this.getPerformanceMetrics()
+    
+    return {
+      ...stats,
+      ...metrics,
+      efficiency: {
+        targetRate: this.config.dataPointsPerSecond || 10,
+        actualRate: metrics.averageDataPointsPerSecond,
+        efficiency: metrics.averageDataPointsPerSecond / (this.config.dataPointsPerSecond || 10),
+        dropRatePercentage: (metrics.actualDropRate * 100).toFixed(2) + '%'
+      },
+      memory: {
+        messageQueueSize: this.messageQueue.length,
+        clientConnections: this.clients.size
+      }
     }
   }
 }
