@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, memo, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -30,7 +30,7 @@ interface DragState {
   dropTarget: { type: 'group' | 'root'; id?: string } | null
 }
 
-export function AdvancedFilterBuilder({ availableFields, className, onValidationChange }: AdvancedFilterBuilderProps) {
+const AdvancedFilterBuilder = memo<AdvancedFilterBuilderProps>(function AdvancedFilterBuilder({ availableFields, className, onValidationChange }) {
   const dispatch = useAppDispatch()
   const { filterCriteria } = useAppSelector((state) => state.filter)
   const [selectedField, setSelectedField] = useState<string>('')
@@ -920,4 +920,7 @@ export function AdvancedFilterBuilder({ availableFields, className, onValidation
       </CardContent>
     </Card>
   )
-}
+})
+
+export { AdvancedFilterBuilder }
+export default AdvancedFilterBuilder

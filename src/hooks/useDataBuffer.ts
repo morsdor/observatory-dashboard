@@ -1,9 +1,12 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, useEffect } from 'react'
 import { DataPoint } from '@/types'
 
 export interface DataBufferConfig {
   maxSize?: number
   enableMetrics?: boolean
+  memoryThreshold?: number // MB
+  gcInterval?: number // ms
+  optimizationInterval?: number // ms
 }
 
 export interface DataBufferMetrics {
@@ -12,6 +15,9 @@ export interface DataBufferMetrics {
   bufferUtilization: number
   averagePointsPerSecond: number
   lastUpdateTime: Date
+  memoryUsage: number
+  gcCount: number
+  lastGcTime?: Date
 }
 
 export interface DataBufferHookReturn {
@@ -21,12 +27,17 @@ export interface DataBufferHookReturn {
   getMetrics: () => DataBufferMetrics
   bufferSize: number
   isBufferFull: boolean
+  forceGarbageCollection: () => void
+  optimizeBuffer: () => void
 }
 
 export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookReturn {
   const {
     maxSize = 100000,
-    enableMetrics = true
+    enableMetrics = true,
+    memoryThreshold = 50, // 50MB
+    gcInterval = 30000, // 30 seconds
+    optimizationInterval = 60000 // 60 seconds
   } = config
 
   const [data, setData] = useState<DataPoint[]>([])
@@ -37,8 +48,103 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
     totalPointsReceived: 0,
     totalPointsDropped: 0,
     startTime: new Date(),
-    lastUpdateTime: new Date()
+    lastUpdateTime: new Date(),
+    memoryUsage: 0,
+    gcCount: 0,
+    lastGcTime: undefined as Date | undefined
   })
+
+  const gcIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const optimizationIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastOptimizationRef = useRef<number>(0)
+
+  // Calculate memory usage more accurately
+  const calculateMemoryUsage = useCallback((dataPoints: DataPoint[]) => {
+    if (dataPoints.length === 0) return 0
+    
+    // Sample first 100 points for estimation
+    const sampleSize = Math.min(100, dataPoints.length)
+    let totalSize = 0
+    
+    for (let i = 0; i < sampleSize; i++) {
+      const point = dataPoints[i]
+      
+      // Base object overhead
+      totalSize += 64
+      
+      // String properties
+      totalSize += (point.id?.length || 0) * 2
+      totalSize += (point.category?.length || 0) * 2
+      totalSize += (point.source?.length || 0) * 2
+      
+      // Date object
+      totalSize += 24
+      
+      // Number
+      totalSize += 8
+      
+      // Metadata object
+      if (point.metadata) {
+        totalSize += JSON.stringify(point.metadata).length * 2
+      }
+    }
+    
+    // Extrapolate for all points
+    const avgPointSize = totalSize / sampleSize
+    return (avgPointSize * dataPoints.length) / (1024 * 1024) // Convert to MB
+  }, [])
+
+  // Force garbage collection
+  const forceGarbageCollection = useCallback(() => {
+    if ('gc' in window && typeof (window as any).gc === 'function') {
+      try {
+        (window as any).gc()
+        metricsRef.current.gcCount++
+        metricsRef.current.lastGcTime = new Date()
+        console.log('Manual garbage collection triggered')
+      } catch (error) {
+        console.warn('Failed to trigger garbage collection:', error)
+      }
+    } else {
+      // Fallback: create and release large objects to encourage GC
+      const largeArray = new Array(1000000).fill(null)
+      largeArray.length = 0
+      metricsRef.current.gcCount++
+      metricsRef.current.lastGcTime = new Date()
+    }
+  }, [])
+
+  // Optimize buffer by removing duplicates and old data
+  const optimizeBuffer = useCallback(() => {
+    const now = performance.now()
+    
+    // Throttle optimization
+    if (now - lastOptimizationRef.current < 5000) return
+    
+    setData(prevData => {
+      if (prevData.length === 0) return prevData
+      
+      // Remove duplicates based on timestamp and value
+      const uniqueData = prevData.filter((point, index, array) => {
+        if (index === 0) return true
+        const prev = array[index - 1]
+        return !(
+          Math.abs(point.timestamp.getTime() - prev.timestamp.getTime()) < 1000 &&
+          Math.abs(point.value - prev.value) < 0.001 &&
+          point.category === prev.category
+        )
+      })
+      
+      if (uniqueData.length < prevData.length) {
+        const removed = prevData.length - uniqueData.length
+        console.log(`Buffer optimization removed ${removed} duplicate/similar points`)
+        metricsRef.current.totalPointsDropped += removed
+      }
+      
+      lastOptimizationRef.current = now
+      return uniqueData
+    })
+  }, [])
 
   const addData = useCallback((newPoints: DataPoint[]) => {
     if (!newPoints || newPoints.length === 0) {
@@ -57,30 +163,43 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
         metricsRef.current.totalPointsReceived += totalNewPoints
       }
 
-      // If new points fit within available space, just append them
-      if (totalNewPoints <= availableSpace) {
-        const updatedData = [...currentData, ...newPoints]
-        setBufferSize(updatedData.length)
-        return updatedData
-      }
-
-      // Need to implement sliding window
       let finalData: DataPoint[]
       let droppedCount = 0
 
-      if (totalNewPoints >= maxSize) {
-        // New points exceed buffer size, keep only the most recent points
-        finalData = newPoints.slice(-maxSize)
-        droppedCount = currentSize + (totalNewPoints - maxSize)
+      // If new points fit within available space, just append them
+      if (totalNewPoints <= availableSpace) {
+        finalData = [...currentData, ...newPoints]
       } else {
-        // Remove oldest points to make room for new ones
-        const pointsToRemove = totalNewPoints - availableSpace
-        finalData = [...currentData.slice(pointsToRemove), ...newPoints]
-        droppedCount = pointsToRemove
+        // Need to implement sliding window
+        if (totalNewPoints >= maxSize) {
+          // New points exceed buffer size, keep only the most recent points
+          finalData = newPoints.slice(-maxSize)
+          droppedCount = currentSize + (totalNewPoints - maxSize)
+        } else {
+          // Remove oldest points to make room for new ones
+          const pointsToRemove = totalNewPoints - availableSpace
+          finalData = [...currentData.slice(pointsToRemove), ...newPoints]
+          droppedCount = pointsToRemove
+        }
+
+        if (enableMetrics) {
+          metricsRef.current.totalPointsDropped += droppedCount
+        }
       }
 
-      if (enableMetrics) {
-        metricsRef.current.totalPointsDropped += droppedCount
+      // Update memory usage
+      const memoryUsage = calculateMemoryUsage(finalData)
+      metricsRef.current.memoryUsage = memoryUsage
+
+      // Check memory threshold
+      if (memoryUsage > memoryThreshold) {
+        console.warn(`Memory usage (${memoryUsage.toFixed(1)}MB) exceeds threshold (${memoryThreshold}MB)`)
+        
+        // Trigger optimization and GC asynchronously
+        setTimeout(() => {
+          optimizeBuffer()
+          forceGarbageCollection()
+        }, 0)
       }
 
       setBufferSize(finalData.length)
@@ -97,10 +216,18 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
         totalPointsReceived: 0,
         totalPointsDropped: 0,
         startTime: new Date(),
-        lastUpdateTime: new Date()
+        lastUpdateTime: new Date(),
+        memoryUsage: 0,
+        gcCount: metricsRef.current.gcCount, // Preserve GC count
+        lastGcTime: metricsRef.current.lastGcTime
       }
     }
-  }, [enableMetrics])
+
+    // Force GC after clearing
+    setTimeout(() => {
+      forceGarbageCollection()
+    }, 100)
+  }, [enableMetrics, forceGarbageCollection])
 
   const getMetrics = useCallback((): DataBufferMetrics => {
     const now = new Date()
@@ -114,9 +241,39 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
       totalPointsDropped: metricsRef.current.totalPointsDropped,
       bufferUtilization: (bufferSize / maxSize) * 100,
       averagePointsPerSecond: Math.round(averagePointsPerSecond * 100) / 100,
-      lastUpdateTime: metricsRef.current.lastUpdateTime
+      lastUpdateTime: metricsRef.current.lastUpdateTime,
+      memoryUsage: metricsRef.current.memoryUsage,
+      gcCount: metricsRef.current.gcCount,
+      lastGcTime: metricsRef.current.lastGcTime
     }
   }, [bufferSize, maxSize])
+
+  // Automatic garbage collection and optimization
+  useEffect(() => {
+    if (gcInterval > 0) {
+      gcIntervalRef.current = setInterval(() => {
+        const metrics = getMetrics()
+        if (metrics.memoryUsage > memoryThreshold * 0.7) {
+          forceGarbageCollection()
+        }
+      }, gcInterval)
+    }
+
+    if (optimizationInterval > 0) {
+      optimizationIntervalRef.current = setInterval(() => {
+        optimizeBuffer()
+      }, optimizationInterval)
+    }
+
+    return () => {
+      if (gcIntervalRef.current) {
+        clearInterval(gcIntervalRef.current)
+      }
+      if (optimizationIntervalRef.current) {
+        clearInterval(optimizationIntervalRef.current)
+      }
+    }
+  }, [gcInterval, optimizationInterval, memoryThreshold, getMetrics, forceGarbageCollection, optimizeBuffer])
 
   const isBufferFull = bufferSize >= maxSize
 
@@ -126,6 +283,8 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
     clearBuffer,
     getMetrics,
     bufferSize,
-    isBufferFull
+    isBufferFull,
+    forceGarbageCollection,
+    optimizeBuffer
   }
 }

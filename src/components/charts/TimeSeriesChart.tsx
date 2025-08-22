@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react'
+import React, { useRef, useEffect, useCallback, useMemo, useState, memo } from 'react'
 import * as d3 from 'd3'
 import { DataPoint } from '@/types'
 import { ChartDimensions } from './CanvasChart'
@@ -27,7 +27,7 @@ export interface TimeSeriesChartProps {
   className?: string
 }
 
-export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({
+export const TimeSeriesChart = memo<TimeSeriesChartProps>(function TimeSeriesChart({
   data,
   width,
   height,
@@ -46,7 +46,7 @@ export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({
   formatValue,
   formatTimestamp,
   className = ''
-}) => {
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [zoomTransform, setZoomTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity)
@@ -487,6 +487,6 @@ export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({
       )}
     </div>
   )
-}
+})
 
 export default TimeSeriesChart

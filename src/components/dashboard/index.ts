@@ -20,3 +20,4 @@ export {
   defaultDataPointColumns,
   type ColumnDefinition 
 } from './VirtualizedDataTable'
+export { RealTimeDashboard } from './RealTimeDashboard'
