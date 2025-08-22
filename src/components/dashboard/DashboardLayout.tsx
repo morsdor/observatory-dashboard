@@ -6,6 +6,7 @@ import { DashboardSidebar } from './DashboardSidebar'
 import { DashboardGrid, GridLayouts } from './DashboardGrid'
 import { ErrorBoundary, ChartErrorFallback, DataGridErrorFallback } from './ErrorBoundary'
 import { DashboardSkeleton, ChartLoadingSkeleton, DataGridLoadingSkeleton, LoadingSpinner } from './LoadingStates'
+import { DataTableDemo } from './DataTableDemo'
 import { Card } from '@/components/ui/card'
 
 interface DashboardLayoutProps {
@@ -63,12 +64,9 @@ export function DashboardLayout({
         return (
           <ErrorBoundary fallback={DataGridErrorFallback}>
             <Suspense fallback={<DataGridLoadingSkeleton />}>
-              <DashboardGrid
-                items={GridLayouts.dataGrid.map(layout => ({
-                  ...layout,
-                  component: <PlaceholderComponent type={layout.id} />
-                }))}
-              />
+              <div className="p-4">
+                <DataTableDemo />
+              </div>
             </Suspense>
           </ErrorBoundary>
         )

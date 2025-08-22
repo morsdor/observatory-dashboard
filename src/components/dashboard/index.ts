@@ -15,3 +15,8 @@ export {
   DataGridLoadingSkeleton, 
   LoadingSpinner 
 } from './LoadingStates'
+export { 
+  VirtualizedDataTable, 
+  defaultDataPointColumns,
+  type ColumnDefinition 
+} from './VirtualizedDataTable'
