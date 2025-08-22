@@ -98,6 +98,22 @@ const filterSlice = createSlice({
           group.id === updatedGroup.id ? updatedGroup : group
         )
       }
+    },
+
+    updateFilterCondition: (state, action: PayloadAction<FilterCondition>) => {
+      const updatedCondition = action.payload
+      state.filterCriteria = {
+        ...state.filterCriteria,
+        conditions: state.filterCriteria.conditions.map(condition =>
+          condition.id === updatedCondition.id ? updatedCondition : condition
+        )
+      }
+      state.activeFilters = state.filterCriteria.conditions
+    },
+
+    setFilterCriteria: (state, action: PayloadAction<FilterCriteria>) => {
+      state.filterCriteria = action.payload
+      state.activeFilters = action.payload.conditions
     }
   }
 })
@@ -111,6 +127,8 @@ export const {
   updateFilterPerformance,
   addFilterGroup,
   removeFilterGroup,
-  updateFilterGroup
+  updateFilterGroup,
+  updateFilterCondition,
+  setFilterCriteria
 } = filterSlice.actions
 export default filterSlice.reducer
