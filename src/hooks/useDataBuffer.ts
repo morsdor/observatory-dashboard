@@ -148,7 +148,7 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
     })
   }, [])
 
-  const addData = useCallback((newPoints: DataPoint[]) => {
+  const addData = useCallback((newPoints: DataPoint[]) => { 
     if (!newPoints || newPoints.length === 0) {
       return
     }
@@ -207,7 +207,7 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
       setBufferSize(finalData.length)
       return finalData
     })
-  }, [maxSize, enableMetrics])
+  }, [maxSize, enableMetrics, calculateMemoryUsage, optimizeBuffer, forceGarbageCollection, memoryThreshold])
 
   const clearBuffer = useCallback(() => {
     setData([])

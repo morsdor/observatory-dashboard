@@ -8,12 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
-  Activity, 
-  Database, 
-  Wifi, 
-  WifiOff, 
-  AlertTriangle, 
+import {
+  Activity,
+  Database,
+  Wifi,
+  WifiOff,
+  AlertTriangle,
   RotateCcw,
   Play,
   Pause,
@@ -43,20 +43,13 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
     autoConnect: true
   })
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('RealTimeDashboard - Data length:', realTime.data.length)
-    console.log('RealTimeDashboard - Connection status:', realTime.connectionStatus)
-    if (realTime.data.length > 0) {
-      console.log('RealTimeDashboard - Sample data:', realTime.data[0])
-    }
-  }, [realTime.data.length, realTime.connectionStatus])
+
 
   // Memoized chart data for performance
   const chartData = useMemo(() => {
     // Limit chart data to last 1000 points for performance
     const maxChartPoints = 1000
-    return realTime.data.length > maxChartPoints 
+    return realTime.data.length > maxChartPoints
       ? realTime.data.slice(-maxChartPoints)
       : realTime.data
   }, [realTime.data])
@@ -84,7 +77,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
       disconnected: 'outline' as const,
       error: 'destructive' as const
     }
-    
+
     return (
       <Badge variant={variants[realTime.connectionStatus as keyof typeof variants] || 'outline'}>
         {connectionStatusIcon}
@@ -243,7 +236,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
           <div>
             <p className="text-gray-600">Last Update</p>
             <p className="font-semibold">
-              {realTime.metrics.lastUpdateTime 
+              {realTime.metrics.lastUpdateTime
                 ? realTime.metrics.lastUpdateTime.toLocaleTimeString()
                 : 'Never'
               }
@@ -292,12 +285,12 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
               <AlertDescription>{realTime.error}</AlertDescription>
             </Alert>
           )}
-          
+
           {realTime.isBufferFull && (
             <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                Buffer is full ({maxBufferSize.toLocaleString()} points). 
+                Buffer is full ({maxBufferSize.toLocaleString()} points).
                 Older data is being automatically removed.
               </AlertDescription>
             </Alert>
@@ -345,7 +338,9 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
             <div className="p-8 text-center text-gray-500">
               <p>No data available</p>
               <p className="text-sm">Connection Status: {realTime.connectionStatus}</p>
-              <p className="text-sm">Data Length: {realTime.data.length}</p>
+              {realTime.error && (
+                <p className="text-sm text-red-600">Error: {realTime.error}</p>
+              )}
             </div>
           ) : (
             <VirtualizedDataTable

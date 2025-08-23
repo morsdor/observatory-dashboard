@@ -93,6 +93,30 @@ export function useRealTimeIntegration(config: RealTimeIntegrationConfig): RealT
     autoConnect
   })
 
+
+  // Calculate data rate (points per second)
+  const calculateDataRate = useCallback(() => {
+    const now = Date.now()
+    const window = dataRateWindowRef.current
+    
+    // Add current data point count
+    window.push({ timestamp: now, count: dataStream.data.length })
+    
+    // Remove old entries outside the window
+    const cutoff = now - dataRateCalculationWindow
+    dataRateWindowRef.current = window.filter(entry => entry.timestamp > cutoff)
+    
+    // Calculate rate
+    if (dataRateWindowRef.current.length < 2) return 0
+    
+    const oldest = dataRateWindowRef.current[0]
+    const newest = dataRateWindowRef.current[dataRateWindowRef.current.length - 1]
+    const timeDiff = (newest.timestamp - oldest.timestamp) / 1000 // Convert to seconds
+    const countDiff = newest.count - oldest.count
+    
+    return timeDiff > 0 ? Math.round(countDiff / timeDiff) : 0
+  }, [dataStream.data.length, dataRateCalculationWindow])
+
   // Handle incoming data and update store
   useEffect(() => {
     if (dataStream.data.length > lastDataCountRef.current) {
@@ -122,7 +146,7 @@ export function useRealTimeIntegration(config: RealTimeIntegrationConfig): RealT
 
       lastDataCountRef.current = dataStream.data.length
     }
-  }, [dataStream.data, dispatch, maxBufferSize])
+  }, [dataStream.data, dispatch, maxBufferSize, calculateDataRate])
 
   // Handle connection status changes
   useEffect(() => {
@@ -135,28 +159,7 @@ export function useRealTimeIntegration(config: RealTimeIntegrationConfig): RealT
     }
   }, [dataStream.connectionStatus, dispatch])
 
-  // Calculate data rate (points per second)
-  const calculateDataRate = useCallback(() => {
-    const now = Date.now()
-    const window = dataRateWindowRef.current
-    
-    // Add current data point count
-    window.push({ timestamp: now, count: dataStream.data.length })
-    
-    // Remove old entries outside the window
-    const cutoff = now - dataRateCalculationWindow
-    dataRateWindowRef.current = window.filter(entry => entry.timestamp > cutoff)
-    
-    // Calculate rate
-    if (dataRateWindowRef.current.length < 2) return 0
-    
-    const oldest = dataRateWindowRef.current[0]
-    const newest = dataRateWindowRef.current[dataRateWindowRef.current.length - 1]
-    const timeDiff = (newest.timestamp - oldest.timestamp) / 1000 // Convert to seconds
-    const countDiff = newest.count - oldest.count
-    
-    return timeDiff > 0 ? Math.round(countDiff / timeDiff) : 0
-  }, [dataStream.data.length, dataRateCalculationWindow])
+  
 
   // Monitor memory usage
   const monitorMemoryUsage = useCallback(() => {

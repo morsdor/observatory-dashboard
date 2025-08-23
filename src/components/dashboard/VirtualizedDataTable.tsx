@@ -41,24 +41,10 @@ export function VirtualizedDataTable({
   onRowDoubleClick,
   className = ''
 }: VirtualizedDataTableProps) {
-  // Debug logging
-  React.useEffect(() => {
-    console.log('VirtualizedDataTable - Data length:', data.length)
-    if (data.length > 0) {
-      console.log('VirtualizedDataTable - Sample data:', data[0])
-      console.log('VirtualizedDataTable - Data types:', {
-        id: typeof data[0].id,
-        timestamp: typeof data[0].timestamp,
-        value: typeof data[0].value,
-        category: typeof data[0].category,
-        source: typeof data[0].source,
-        metadata: typeof data[0].metadata
-      })
-    }
-  }, [data.length])
+
   const dispatch = useAppDispatch()
   const selectedRows = useAppSelector((state) => state.ui.selectedRows)
-  
+
   const [sortState, setSortState] = useState<SortState>({
     column: null,
     direction: null
@@ -110,10 +96,10 @@ export function VirtualizedDataTable({
     setSortState(prev => {
       if (prev.column === columnKey) {
         // Cycle through: asc -> desc -> null
-        const nextDirection: SortDirection = 
-          prev.direction === 'asc' ? 'desc' : 
-          prev.direction === 'desc' ? null : 'asc'
-        
+        const nextDirection: SortDirection =
+          prev.direction === 'asc' ? 'desc' :
+            prev.direction === 'desc' ? null : 'asc'
+
         return {
           column: nextDirection ? columnKey : null,
           direction: nextDirection
@@ -136,12 +122,12 @@ export function VirtualizedDataTable({
       // Range select with Shift
       const lastSelectedIndex = sortedData.findIndex(item => item.id === selectedRows[selectedRows.length - 1])
       const currentIndex = sortedData.findIndex(item => item.id === row.id)
-      
+
       if (lastSelectedIndex !== -1 && currentIndex !== -1) {
         const start = Math.min(lastSelectedIndex, currentIndex)
         const end = Math.max(lastSelectedIndex, currentIndex)
         const rangeIds = sortedData.slice(start, end + 1).map(item => item.id)
-        
+
         const newSelection = [...new Set([...selectedRows, ...rangeIds])]
         dispatch(setSelectedRows(newSelection))
       }
@@ -176,7 +162,7 @@ export function VirtualizedDataTable({
     if (value instanceof Date) {
       return value.toLocaleString()
     }
-    
+
     if (typeof value === 'number') {
       return value.toLocaleString()
     }
@@ -193,8 +179,8 @@ export function VirtualizedDataTable({
     if (sortState.column !== columnKey) {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />
     }
-    
-    return sortState.direction === 'asc' ? 
+
+    return sortState.direction === 'asc' ?
       <ChevronUp className="w-4 h-4 text-blue-600" /> :
       <ChevronDown className="w-4 h-4 text-blue-600" />
   }, [sortState])
@@ -219,34 +205,32 @@ export function VirtualizedDataTable({
     </div>
   ), [columns, handleSort, renderSortIcon])
 
-  // Table row component
-  const TableRow = useCallback(({ index, ...props }: { index: number }) => {
-    const row = sortedData[index]
-    const isSelected = selectedRows.includes(row.id)
+  // Table row component for TableVirtuoso
+  const TableRow = useCallback((index: number, item: DataPoint) => {
+    const isSelected = selectedRows.includes(item.id)
 
     return (
       <div
-        {...props}
         className={`
           flex border-b border-gray-100 hover:bg-gray-50 cursor-pointer
           ${isSelected ? 'bg-blue-50 border-blue-200' : ''}
         `}
-        onClick={(event) => handleRowClick(row, event)}
-        onDoubleClick={() => handleRowDoubleClick(row)}
+        onClick={(event) => handleRowClick(item, event)}
+        onDoubleClick={() => handleRowDoubleClick(item)}
       >
         {columns.map((column) => (
           <div
             key={String(column.key)}
             className="px-4 py-3 text-sm text-gray-900 truncate"
             style={{ width: column.width || 'auto', minWidth: column.width || 120 }}
-            title={String(getCellValue(row, column))}
+            title={String(getCellValue(item, column))}
           >
-            {getCellValue(row, column)}
+            {getCellValue(item, column)}
           </div>
         ))}
       </div>
     )
-  }, [sortedData, selectedRows, columns, handleRowClick, handleRowDoubleClick, getCellValue])
+  }, [selectedRows, columns, handleRowClick, handleRowDoubleClick, getCellValue])
 
   return (
     <Card className={`flex flex-col ${className}`}>
@@ -273,7 +257,7 @@ export function VirtualizedDataTable({
           </div>
         </div>
       </div>
-      
+
       <div className="flex-1" style={{ height }}>
         {sortedData.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500">
@@ -321,9 +305,9 @@ export const defaultDataPointColumns: ColumnDefinition[] = [
     sortable: true,
     formatter: (value: number) => {
       if (typeof value !== 'number' || isNaN(value)) return 'N/A'
-      return value.toLocaleString(undefined, { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
+      return value.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
       })
     }
   },

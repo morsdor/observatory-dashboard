@@ -76,20 +76,20 @@ export function useWebSocket(config: WebSocketConfig): WebSocketHookReturn {
           
           // Validate incoming data
           if (Array.isArray(data)) {
-            // Convert Date objects to ISO strings for validation
+            // Data is already in the correct format from the server
+
             const normalizedData = data.map(item => ({
               ...item,
               timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
             }))
-            
             const { valid, invalid } = validateDataArray(DataPointSchema, normalizedData)
             
             if (invalid.length > 0) {
-              console.warn('Invalid data points received:', invalid)
+              console.warn('Invalid data points received:', invalid.length, 'items')
             }
             
             if (valid.length > 0) {
-              // Convert timestamp strings back to Date objects for internal use
+              // Convert timestamp strings to Date objects for internal use
               const processedData = valid.map(item => ({
                 ...item,
                 timestamp: new Date(item.timestamp),
