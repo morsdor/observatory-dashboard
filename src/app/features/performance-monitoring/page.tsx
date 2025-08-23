@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { PageLayout } from '@/components/layout/PageLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Activity, TrendingUp, Zap } from 'lucide-react'
@@ -8,33 +9,26 @@ import PerformanceMonitorDashboard from '@/components/performance/PerformanceMon
 
 export default function PerformanceMonitoringPage() {
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Activity className="w-8 h-8 text-blue-600" />
-          <div>
-            <h1 className="text-3xl font-bold">Performance Monitoring</h1>
-            <p className="text-muted-foreground">
-              Real-time performance metrics, network monitoring, and system diagnostics
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Activity className="w-3 h-3" />
-            Real-time FPS Monitoring
-          </Badge>
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
-            Memory Usage Tracking
-          </Badge>
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Zap className="w-3 h-3" />
-            Network Latency Measurement
-          </Badge>
-        </div>
+    <PageLayout
+      title="Performance Monitoring"
+      description="Real-time performance metrics, network monitoring, and system diagnostics"
+      showStreamingControls={true}
+      streamingControlsCompact={true}
+    >
+      {/* Feature Badges */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <Activity className="w-3 h-3" />
+          Real-time FPS Monitoring
+        </Badge>
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <TrendingUp className="w-3 h-3" />
+          Memory Usage Tracking
+        </Badge>
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <Zap className="w-3 h-3" />
+          Network Latency Measurement
+        </Badge>
       </div>
 
       {/* Feature Overview */}
@@ -175,6 +169,6 @@ const latency = await performanceMonitor.measureNetworkLatency()
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageLayout>
   )
 }

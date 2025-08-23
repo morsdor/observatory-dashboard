@@ -1,132 +1,59 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
-import { MainNavigation } from '@/components/navigation/MainNavigation'
+import { PageLayout } from '@/components/layout/PageLayout'
 import { RealTimeDashboard } from '@/components/dashboard/RealTimeDashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
-  Activity, 
-  Wifi, 
-  WifiOff, 
-  Zap, 
   Database, 
   Clock,
   TrendingUp,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Zap
 } from 'lucide-react'
 import { Provider } from 'react-redux'
 import { store } from '@/stores/dashboardStore'
+import { useDataStreaming } from '@/hooks/useDataStreaming'
 
 function RealTimeDashboardContent() {
   const { getCurrentMetrics } = useRealPerformanceMetrics()
   const currentMetrics = getCurrentMetrics()
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected')
-  const [dataPointsReceived, setDataPointsReceived] = useState(0)
-  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
-  const [isStreaming, setIsStreaming] = useState(false)
-
-  // Simulate connection status changes for demo
-  useEffect(() => {
-    if (isStreaming) {
-      setConnectionStatus('connecting')
-      setTimeout(() => {
-        setConnectionStatus('connected')
-        
-        // Simulate data reception
-        const interval = setInterval(() => {
-          setDataPointsReceived(prev => prev + Math.floor(Math.random() * 50) + 10)
-          setLastUpdateTime(new Date())
-        }, 1000)
-
-        return () => clearInterval(interval)
-      }, 2000)
-    } else {
-      setConnectionStatus('disconnected')
-    }
-  }, [isStreaming])
-
-  const toggleStreaming = () => {
-    setIsStreaming(!isStreaming)
-    if (!isStreaming) {
-      setDataPointsReceived(0)
-      setLastUpdateTime(null)
-    }
-  }
-
-  const getConnectionIcon = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return <Wifi className="h-4 w-4 text-green-600" />
-      case 'connecting':
-        return <Activity className="h-4 w-4 text-yellow-600 animate-pulse" />
-      case 'error':
-        return <WifiOff className="h-4 w-4 text-red-600" />
-      default:
-        return <WifiOff className="h-4 w-4 text-gray-400" />
-    }
-  }
-
-  const getConnectionBadge = () => {
-    const variants = {
-      connected: 'default',
-      connecting: 'secondary',
-      error: 'destructive',
-      disconnected: 'outline'
-    } as const
-
-    return (
-      <Badge variant={variants[connectionStatus]} className="flex items-center gap-1">
-        {getConnectionIcon()}
-        {connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1)}
-      </Badge>
-    )
-  }
+  const { 
+    status, 
+    isConnected, 
+    metrics, 
+    data 
+  } = useDataStreaming({ autoConnect: false })
 
   return (
-    <div className="min-h-screen bg-background">
-      <MainNavigation />
-      <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Real-Time Dashboard</h1>
-            <p className="text-lg text-muted-foreground">
-              Live data streaming with WebSocket connections and high-performance visualization
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            {getConnectionBadge()}
-            <Button onClick={toggleStreaming} variant={isStreaming ? 'destructive' : 'default'}>
-              {isStreaming ? 'Stop Streaming' : 'Start Streaming'}
-            </Button>
-          </div>
-        </div>
+    <PageLayout
+      title="Real-Time Dashboard"
+      description="Live data streaming with WebSocket connections and high-performance visualization"
+      showStreamingControls={true}
+      streamingControlsCompact={false}
+    >
+      {/* Connection Status Alert */}
+      {isConnected && (
+        <Alert className="mb-6 border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            Data streaming active. Receiving real-time updates.
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {/* Connection Status Alert */}
-        {connectionStatus === 'connected' && (
-          <Alert className="mb-6 border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              WebSocket connection established. Receiving real-time data updates.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {connectionStatus === 'error' && (
-          <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              Connection failed. Attempting to reconnect...
-            </AlertDescription>
-          </Alert>
-        )}
-      </div>
+      {status === 'error' && (
+        <Alert className="mb-6 border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            Connection failed. Attempting to reconnect...
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs defaultValue="dashboard" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -147,7 +74,9 @@ function RealTimeDashboardContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{dataPointsReceived.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {metrics?.totalDataPoints.toLocaleString() || '0'}
+                </div>
                 <p className="text-xs text-muted-foreground">Total received</p>
               </CardContent>
             </Card>
@@ -161,10 +90,10 @@ function RealTimeDashboardContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {lastUpdateTime ? lastUpdateTime.toLocaleTimeString() : '--:--:--'}
+                  {metrics?.lastUpdateTime ? metrics.lastUpdateTime.toLocaleTimeString() : '--:--:--'}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {lastUpdateTime ? 'Just now' : 'No updates'}
+                  {metrics?.lastUpdateTime ? 'Just now' : 'No updates'}
                 </p>
               </CardContent>
             </Card>
@@ -178,7 +107,7 @@ function RealTimeDashboardContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {isStreaming && connectionStatus === 'connected' ? '~30/sec' : '0/sec'}
+                  {metrics ? `${Math.round(metrics.dataPointsPerSecond)}/sec` : '0/sec'}
                 </div>
                 <p className="text-xs text-muted-foreground">Points per second</p>
               </CardContent>
@@ -188,14 +117,14 @@ function RealTimeDashboardContent() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Zap className="h-4 w-4" />
-                  Latency
+                  Buffer Usage
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {connectionStatus === 'connected' ? '<50ms' : '--'}
+                  {metrics ? `${Math.round(metrics.bufferUtilization)}%` : '0%'}
                 </div>
-                <p className="text-xs text-muted-foreground">Update latency</p>
+                <p className="text-xs text-muted-foreground">Buffer utilization</p>
               </CardContent>
             </Card>
           </div>
@@ -212,28 +141,30 @@ function RealTimeDashboardContent() {
             <Card>
               <CardHeader>
                 <CardTitle>Connection Statistics</CardTitle>
-                <CardDescription>WebSocket connection performance metrics</CardDescription>
+                <CardDescription>Data streaming performance metrics</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Connection Status:</span>
-                  <span className="text-sm">{connectionStatus}</span>
+                  <span className="text-sm capitalize">{status}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm font-medium">Reconnection Attempts:</span>
-                  <span className="text-sm">0</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Messages Received:</span>
-                  <span className="text-sm">{Math.floor(dataPointsReceived / 10)}</span>
+                  <span className="text-sm font-medium">Connection Uptime:</span>
+                  <span className="text-sm">
+                    {metrics ? `${Math.floor(metrics.connectionUptime / 1000)}s` : '0s'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Data Points Processed:</span>
-                  <span className="text-sm">{dataPointsReceived.toLocaleString()}</span>
+                  <span className="text-sm">{metrics?.totalDataPoints.toLocaleString() || '0'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Buffer Utilization:</span>
-                  <span className="text-sm">{Math.min(100, (dataPointsReceived / 1000) * 100).toFixed(1)}%</span>
+                  <span className="text-sm">{metrics ? `${metrics.bufferUtilization.toFixed(1)}%` : '0%'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Memory Usage:</span>
+                  <span className="text-sm">{metrics ? `${metrics.memoryUsage.toFixed(1)} MB` : '0 MB'}</span>
                 </div>
               </CardContent>
             </Card>
@@ -249,8 +180,10 @@ function RealTimeDashboardContent() {
                   <span className="text-sm text-green-600">{formatFps(currentMetrics.currentFps)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm font-medium">Memory Usage:</span>
-                  <span className="text-sm">~45 MB</span>
+                  <span className="text-sm font-medium">Data Rate:</span>
+                  <span className="text-sm text-green-600">
+                    {metrics ? `${Math.round(metrics.dataPointsPerSecond)}/sec` : '0/sec'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Render Time:</span>
@@ -384,8 +317,7 @@ function RealTimeDashboardContent() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

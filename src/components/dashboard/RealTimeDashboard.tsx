@@ -1,25 +1,22 @@
 'use client'
 
 import React, { useCallback, useMemo, useState, memo } from 'react'
-import { useRealTimeIntegration } from '@/hooks/useRealTimeIntegration'
+import { useDataStreaming } from '@/hooks/useDataStreaming'
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart'
 import { VirtualizedTable, defaultDataPointColumns } from './VirtualizedTable'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Activity,
   Database,
-  Wifi,
-  WifiOff,
   AlertTriangle,
-  RotateCcw,
-  Play,
   Pause,
+  Play,
+  RotateCcw,
   Trash2
 } from 'lucide-react'
 import { DataPoint } from '@/types'
+import { Button } from '../ui/button'
 
 interface RealTimeDashboardProps {
   websocketUrl?: string
@@ -32,43 +29,51 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
   maxBufferSize = 100000,
   className = ''
 }) {
-  const [isMonitoring, setIsMonitoring] = useState(true)
   const [chartHeight] = useState(400)
   const [tableHeight] = useState(400)
 
-  // Initialize real-time integration with performance optimizations
-  const realTime = useRealTimeIntegration({
-    websocketUrl,
-    maxBufferSize,
-    autoConnect: true
+  // Initialize data streaming with the new unified service
+  const {
+    data,
+    status,
+    isConnected,
+    metrics,
+    connect,
+    disconnect,
+    clearBuffer
+  } = useDataStreaming({
+    autoConnect: true,
+    bufferSize: maxBufferSize,
+    config: {
+      websocketUrl,
+      bufferSize: maxBufferSize
+    }
   })
-
-
 
   // Memoized chart data for performance
   const chartData = useMemo(() => {
     // Limit chart data to last 1000 points for performance
     const maxChartPoints = 1000
-    return realTime.data.length > maxChartPoints
-      ? realTime.data.slice(-maxChartPoints)
-      : realTime.data
-  }, [realTime.data])
+    return data.length > maxChartPoints
+      ? data.slice(-maxChartPoints)
+      : data
+  }, [data])
 
   // Memoized connection status components for performance
   const connectionStatusIcon = useMemo(() => {
-    switch (realTime.connectionStatus) {
+    switch (status) {
       case 'connected':
-        return <Wifi className="w-4 h-4 text-green-600" />
+        return <Activity className="w-4 h-4 text-green-600" />
       case 'connecting':
         return <Activity className="w-4 h-4 text-yellow-600 animate-pulse" />
       case 'disconnected':
-        return <WifiOff className="w-4 h-4 text-gray-400" />
+        return <Activity className="w-4 h-4 text-gray-400" />
       case 'error':
         return <AlertTriangle className="w-4 h-4 text-red-600" />
       default:
-        return <WifiOff className="w-4 h-4 text-gray-400" />
+        return <Activity className="w-4 h-4 text-gray-400" />
     }
-  }, [realTime.connectionStatus])
+  }, [status])
 
   const connectionStatusBadge = useMemo(() => {
     const variants = {
@@ -79,12 +84,12 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
     }
 
     return (
-      <Badge variant={variants[realTime.connectionStatus as keyof typeof variants] || 'outline'}>
+      <div className="flex items-center gap-1">
         {connectionStatusIcon}
-        <span className="ml-1 capitalize">{realTime.connectionStatus}</span>
-      </Badge>
+        <span className="capitalize">{status}</span>
+      </div>
     )
-  }, [realTime.connectionStatus, connectionStatusIcon])
+  }, [status, connectionStatusIcon])
 
   // Format metrics for display
   const formatMetric = useCallback((value: number, unit: string = '', decimals: number = 0) => {
@@ -106,16 +111,11 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
   }, [])
 
-  // Handle monitoring toggle
+  // Handle monitoring toggle (simplified for new system)
   const toggleMonitoring = useCallback(() => {
-    if (isMonitoring) {
-      realTime.stopPerformanceMonitoring()
-      setIsMonitoring(false)
-    } else {
-      realTime.startPerformanceMonitoring()
-      setIsMonitoring(true)
-    }
-  }, [isMonitoring, realTime])
+    // The new streaming service handles monitoring automatically
+    // This is kept for UI consistency but doesn't need to do anything
+  }, [])
 
   // Memoized chart hover handler to prevent unnecessary re-renders
   const handleChartHover = useCallback((_dataPoint: DataPoint | null) => {
@@ -133,7 +133,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
             <div>
               <p className="text-sm font-medium">Data Rate</p>
               <p className="text-2xl font-bold text-blue-600">
-                {formatMetric(realTime.metrics.dataPointsPerSecond, '/s')}
+                {metrics ? formatMetric(metrics.dataPointsPerSecond, '/s') : '0/s'}
               </p>
             </div>
           </div>
@@ -147,7 +147,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
             <div>
               <p className="text-sm font-medium">Total Points</p>
               <p className="text-2xl font-bold text-green-600">
-                {realTime.metrics.totalDataPoints.toLocaleString()}
+                {metrics ? metrics.totalDataPoints.toLocaleString() : '0'}
               </p>
             </div>
           </div>
@@ -161,7 +161,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
             <div>
               <p className="text-sm font-medium">Memory</p>
               <p className="text-2xl font-bold text-purple-600">
-                {formatBytes(realTime.metrics.memoryUsage * 1024 * 1024)}
+                {metrics ? formatBytes(metrics.memoryUsage * 1024 * 1024) : '0 B'}
               </p>
             </div>
           </div>
@@ -175,14 +175,14 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
             <div>
               <p className="text-sm font-medium">Buffer</p>
               <p className="text-2xl font-bold text-orange-600">
-                {formatMetric(realTime.metrics.bufferUtilization, '%', 1)}
+                {metrics ? formatMetric(metrics.bufferUtilization, '%', 1) : '0%'}
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
     </div>
-  ), [realTime.metrics, formatMetric, formatBytes])
+  ), [metrics, formatMetric, formatBytes])
 
   // Memoized performance details to prevent unnecessary re-renders
   const performanceDetails = useMemo(() => (
@@ -190,54 +190,35 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Performance Metrics</span>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleMonitoring}
-            >
-              {isMonitoring ? (
-                <>
-                  <Pause className="w-4 h-4 mr-1" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-1" />
-                  Resume
-                </>
-              )}
-            </Button>
-          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
           <div>
-            <p className="text-gray-600">FPS</p>
-            <p className="font-semibold">{formatMetric(realTime.performanceMetrics.fps)}</p>
+            <p className="text-gray-600">Connection Status</p>
+            <p className="font-semibold capitalize">{status}</p>
           </div>
           <div>
-            <p className="text-gray-600">Render Time</p>
-            <p className="font-semibold">{formatMetric(realTime.performanceMetrics.renderTime, 'ms', 2)}</p>
+            <p className="text-gray-600">Data Points</p>
+            <p className="font-semibold">{data.length.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-gray-600">Filter Time</p>
-            <p className="font-semibold">{formatMetric(realTime.performanceMetrics.filterTime, 'ms', 2)}</p>
+            <p className="text-gray-600">Data Rate</p>
+            <p className="font-semibold">{metrics ? `${Math.round(metrics.dataPointsPerSecond)}/s` : '0/s'}</p>
           </div>
           <div>
             <p className="text-gray-600">Connection Uptime</p>
-            <p className="font-semibold">{formatDuration(realTime.metrics.connectionUptime)}</p>
+            <p className="font-semibold">{metrics ? formatDuration(metrics.connectionUptime / 1000) : '0s'}</p>
           </div>
           <div>
             <p className="text-gray-600">Buffer Size</p>
-            <p className="font-semibold">{realTime.bufferSize.toLocaleString()}</p>
+            <p className="font-semibold">{data.length.toLocaleString()}</p>
           </div>
           <div>
             <p className="text-gray-600">Last Update</p>
             <p className="font-semibold">
-              {realTime.metrics.lastUpdateTime
-                ? realTime.metrics.lastUpdateTime.toLocaleTimeString()
+              {metrics?.lastUpdateTime
+                ? metrics.lastUpdateTime.toLocaleTimeString()
                 : 'Never'
               }
             </p>
@@ -245,7 +226,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
         </div>
       </CardContent>
     </Card>
-  ), [realTime.performanceMetrics, realTime.metrics, formatMetric, formatDuration, isMonitoring, toggleMonitoring])
+  ), [status, data.length, metrics, formatDuration])
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -261,8 +242,8 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
               <Button
                 variant="outline"
                 size="sm"
-                onClick={realTime.reconnect}
-                disabled={realTime.connectionStatus === 'connecting'}
+                onClick={connect}
+                disabled={status === 'connecting'}
               >
                 <RotateCcw className="w-4 h-4 mr-1" />
                 Reconnect
@@ -270,7 +251,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
               <Button
                 variant="outline"
                 size="sm"
-                onClick={realTime.clearBuffer}
+                onClick={clearBuffer}
               >
                 <Trash2 className="w-4 h-4 mr-1" />
                 Clear Buffer
@@ -279,14 +260,14 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {realTime.error && (
+          {status === 'error' && (
             <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{realTime.error}</AlertDescription>
+              <AlertDescription>Connection error occurred. Retrying...</AlertDescription>
             </Alert>
           )}
 
-          {realTime.isBufferFull && (
+          {data.length >= maxBufferSize && (
             <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
@@ -334,17 +315,17 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
           <CardTitle>Real-Time Data Grid</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {realTime.data.length === 0 ? (
+          {data.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <p>No data available</p>
-              <p className="text-sm">Connection Status: {realTime.connectionStatus}</p>
-              {realTime.error && (
-                <p className="text-sm text-red-600">Error: {realTime.error}</p>
+              <p className="text-sm">Connection Status: {status}</p>
+              {status === 'error' && (
+                <p className="text-sm text-red-600">Connection error - attempting to reconnect...</p>
               )}
             </div>
           ) : (
             <VirtualizedTable
-              data={realTime.data}
+              data={data}
               columns={defaultDataPointColumns}
               height={tableHeight}
             />

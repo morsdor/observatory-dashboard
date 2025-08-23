@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
-import { MainNavigation } from '@/components/navigation/MainNavigation'
+import { PageLayout } from '@/components/layout/PageLayout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { 
@@ -23,14 +22,16 @@ import {
   Layers,
   GitBranch
 } from 'lucide-react'
+import { useDataStreaming } from '@/hooks/useDataStreaming'
 
 export default function SystemOverviewPage() {
   const { getCurrentMetrics } = useRealPerformanceMetrics()
   const currentMetrics = getCurrentMetrics()
+  const { metrics: streamingMetrics, status } = useDataStreaming({ autoConnect: false })
+  
   const [systemStats, setSystemStats] = useState({
     totalComponents: 45,
-    activeConnections: 3,
-    dataPoints: 125000,
+    activeConnections: status === 'connected' ? 1 : 0,
     memoryUsage: 67,
     cpuUsage: 23,
     networkThroughput: 1250
@@ -41,8 +42,7 @@ export default function SystemOverviewPage() {
     const interval = setInterval(() => {
       setSystemStats(prev => ({
         totalComponents: prev.totalComponents,
-        activeConnections: Math.max(0, prev.activeConnections + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
-        dataPoints: prev.dataPoints + Math.floor(Math.random() * 100) + 50,
+        activeConnections: status === 'connected' ? 1 : 0,
         memoryUsage: Math.max(30, Math.min(90, prev.memoryUsage + (Math.random() - 0.5) * 5)),
         cpuUsage: Math.max(10, Math.min(80, prev.cpuUsage + (Math.random() - 0.5) * 10)),
         networkThroughput: Math.max(500, Math.min(2000, prev.networkThroughput + (Math.random() - 0.5) * 200))
@@ -50,7 +50,7 @@ export default function SystemOverviewPage() {
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [status])
 
   const components = [
     {
@@ -110,16 +110,12 @@ export default function SystemOverviewPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
-      <MainNavigation />
-      <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">System Overview</h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          Complete system architecture overview showing component relationships, data flow, 
-          performance metrics, and real-time system health monitoring.
-        </p>
-      </div>
+    <PageLayout
+      title="System Overview"
+      description="Complete system architecture overview showing component relationships, data flow, performance metrics, and real-time system health monitoring."
+      showStreamingControls={true}
+      streamingControlsCompact={true}
+    >
 
       <Tabs defaultValue="architecture" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -179,7 +175,9 @@ export default function SystemOverviewPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{systemStats.dataPoints.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {streamingMetrics?.totalDataPoints.toLocaleString() || '0'}
+                </div>
                 <p className="text-xs text-muted-foreground">Currently processed</p>
               </CardContent>
             </Card>
@@ -524,7 +522,6 @@ export default function SystemOverviewPage() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-    </div>
+    </PageLayout>
   )
 }

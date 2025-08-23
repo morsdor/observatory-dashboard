@@ -3,7 +3,7 @@
 import React from 'react'
 import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
 import Link from 'next/link'
-import { MainNavigation } from '@/components/navigation/MainNavigation'
+import { PageLayout } from '@/components/layout/PageLayout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -98,17 +98,10 @@ export default function FeaturesPage() {
   const { getCurrentMetrics } = useRealPerformanceMetrics()
   const currentMetrics = getCurrentMetrics()
   return (
-    <div className="min-h-screen bg-background">
-      <MainNavigation />
-      <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">Observatory Dashboard Features</h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          Explore the comprehensive feature set of the Observatory Dashboard - a high-performance 
-          real-time data visualization platform built with Next.js, designed to handle large-scale 
-          datasets with exceptional performance and user experience.
-        </p>
-      </div>
+    <PageLayout
+      title="Observatory Dashboard Features"
+      description="Explore the comprehensive feature set of the Observatory Dashboard - a high-performance real-time data visualization platform built with Next.js, designed to handle large-scale datasets with exceptional performance and user experience."
+    >
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {features.map((feature) => {
@@ -181,7 +174,6 @@ export default function FeaturesPage() {
           </div>
         </div>
       </div>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
