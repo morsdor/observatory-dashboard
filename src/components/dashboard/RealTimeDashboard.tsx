@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useState, memo } from 'react'
 import { useRealTimeIntegration } from '@/hooks/useRealTimeIntegration'
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart'
-import { VirtualizedDataTable, defaultDataPointColumns } from './VirtualizedDataTable'
+import { VirtualizedTable, defaultDataPointColumns } from './VirtualizedTable'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,7 +36,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
   const [chartHeight] = useState(400)
   const [tableHeight] = useState(400)
 
-  // Initialize real-time integration
+  // Initialize real-time integration with performance optimizations
   const realTime = useRealTimeIntegration({
     websocketUrl,
     maxBufferSize,
@@ -343,7 +343,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
               )}
             </div>
           ) : (
-            <VirtualizedDataTable
+            <VirtualizedTable
               data={realTime.data}
               columns={defaultDataPointColumns}
               height={tableHeight}

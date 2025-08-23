@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { VirtualizedDataTable, ColumnDefinition } from './VirtualizedDataTable'
+import { VirtualizedTable, ColumnDefinition } from './VirtualizedTable'
 import { DataPoint } from '@/types'
 import { useAppSelector, useAppDispatch, addDataPoints, setRawData } from '@/stores/dashboardStore'
 import { Card } from '@/components/ui/card'
@@ -311,7 +311,7 @@ export function DataTableDemo() {
         )}
       </Card>
 
-      <VirtualizedDataTable
+      <VirtualizedTable
         data={rawData}
         columns={enhancedColumns}
         height={600}

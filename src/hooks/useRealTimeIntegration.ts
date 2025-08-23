@@ -98,9 +98,10 @@ export function useRealTimeIntegration(config: RealTimeIntegrationConfig): RealT
   const calculateDataRate = useCallback(() => {
     const now = Date.now()
     const window = dataRateWindowRef.current
+    const currentCount = dataStream.data.length
     
     // Add current data point count
-    window.push({ timestamp: now, count: dataStream.data.length })
+    window.push({ timestamp: now, count: currentCount })
     
     // Remove old entries outside the window
     const cutoff = now - dataRateCalculationWindow
@@ -115,38 +116,46 @@ export function useRealTimeIntegration(config: RealTimeIntegrationConfig): RealT
     const countDiff = newest.count - oldest.count
     
     return timeDiff > 0 ? Math.round(countDiff / timeDiff) : 0
-  }, [dataStream.data.length, dataRateCalculationWindow])
+  }, [dataRateCalculationWindow])
 
   // Handle incoming data and update store
   useEffect(() => {
     if (dataStream.data.length > lastDataCountRef.current) {
       const newDataPoints = dataStream.data.slice(lastDataCountRef.current)
       
-      // Measure data processing time
-      const processingStart = performance.now()
-      
-      // Update store with new data
-      dispatch(addDataPoints(newDataPoints))
-      
-      const processingTime = performance.now() - processingStart
-      
-      // Update performance metrics
-      dispatch(updateMetrics({
-        dataPointsPerSecond: calculateDataRate(),
-        renderTime: processingTime
-      }))
+      // Only process if we have new data
+      if (newDataPoints.length > 0) {
+        // Measure data processing time
+        const processingStart = performance.now()
+        
+        // Update store with new data
+        dispatch(addDataPoints(newDataPoints))
+        
+        const processingTime = performance.now() - processingStart
+        
+        // Calculate data rate inline to avoid dependency issues
+        const dataRate = calculateDataRate()
+        
+        // Update performance metrics (less frequently to avoid performance issues)
+        if (newDataPoints.length % 10 === 0) { // Only update metrics every 10 data points
+          dispatch(updateMetrics({
+            dataPointsPerSecond: dataRate,
+            renderTime: processingTime
+          }))
+        }
 
-      // Update real-time metrics
-      setRealTimeMetrics(prev => ({
-        ...prev,
-        totalDataPoints: dataStream.data.length,
-        lastUpdateTime: new Date(),
-        bufferUtilization: (dataStream.data.length / maxBufferSize) * 100
-      }))
+        // Update real-time metrics
+        setRealTimeMetrics(prev => ({
+          ...prev,
+          totalDataPoints: dataStream.data.length,
+          lastUpdateTime: new Date(),
+          bufferUtilization: (dataStream.data.length / maxBufferSize) * 100
+        }))
 
-      lastDataCountRef.current = dataStream.data.length
+        lastDataCountRef.current = dataStream.data.length
+      }
     }
-  }, [dataStream.data, dispatch, maxBufferSize, calculateDataRate])
+  }, [dataStream.data.length, dispatch, maxBufferSize])
 
   // Handle connection status changes
   useEffect(() => {

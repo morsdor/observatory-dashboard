@@ -1,13 +1,12 @@
 'use client'
 
-import React, { useMemo, useCallback, useState } from 'react'
-
+import React, { useMemo, useCallback, useState, memo } from 'react'
+import { FixedSizeList as List } from 'react-window'
 import { DataPoint } from '@/types'
 import { useAppSelector, useAppDispatch, toggleRowSelection, setSelectedRows } from '@/stores/dashboardStore'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ChevronUp, ChevronDown, ArrowUpDown, Table } from 'lucide-react'
-import { TableHeader, TableRow, TableHead, TableBody, TableCell } from '../ui/table'
+import { ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react'
 
 export interface ColumnDefinition {
   key: keyof DataPoint | string
@@ -18,7 +17,7 @@ export interface ColumnDefinition {
   accessor?: (row: DataPoint) => unknown
 }
 
-interface VirtualizedDataTableProps {
+interface VirtualizedTableProps {
   data: DataPoint[]
   columns: ColumnDefinition[]
   height?: number
@@ -34,18 +33,65 @@ interface SortState {
   direction: SortDirection
 }
 
-export function VirtualizedDataTable({
+// Row component for react-window
+interface RowProps {
+  index: number
+  style: React.CSSProperties
+  data: {
+    items: DataPoint[]
+    columns: ColumnDefinition[]
+    selectedRows: string[]
+    onRowClick: (row: DataPoint, event: React.MouseEvent) => void
+    onRowDoubleClick: (row: DataPoint) => void
+    getCellValue: (row: DataPoint, column: ColumnDefinition) => React.ReactNode
+  }
+}
+
+const TableRow = memo<RowProps>(({ index, style, data }) => {
+  const { items, columns, selectedRows, onRowClick, onRowDoubleClick, getCellValue } = data
+  const item = items[index]
+  
+  if (!item) return null
+
+  const isSelected = selectedRows.includes(item.id)
+
+  return (
+    <div
+      style={style}
+      className={`
+        flex border-b border-gray-100 hover:bg-gray-50 cursor-pointer
+        ${isSelected ? 'bg-blue-50 border-blue-200' : ''}
+      `}
+      onClick={(event) => onRowClick(item, event)}
+      onDoubleClick={() => onRowDoubleClick(item)}
+    >
+      {columns.map((column) => (
+        <div
+          key={String(column.key)}
+          className="px-4 py-3 text-sm text-gray-900 truncate flex items-center"
+          style={{ width: column.width || 'auto', minWidth: column.width || 120 }}
+          title={String(getCellValue(item, column))}
+        >
+          {getCellValue(item, column)}
+        </div>
+      ))}
+    </div>
+  )
+})
+
+TableRow.displayName = 'TableRow'
+
+export const VirtualizedTable = memo<VirtualizedTableProps>(function VirtualizedTable({
   data,
   columns,
   height = 600,
   onRowSelect,
   onRowDoubleClick,
   className = ''
-}: VirtualizedDataTableProps) {
-
+}) {
   const dispatch = useAppDispatch()
   const selectedRows = useAppSelector((state) => state.ui.selectedRows)
-
+  
   const [sortState, setSortState] = useState<SortState>({
     column: null,
     direction: null
@@ -197,7 +243,18 @@ export function VirtualizedDataTable({
       <ChevronDown className="w-4 h-4 text-blue-600" />
   }, [sortState])
 
+  // Prepare data for react-window
+  const itemData = useMemo(() => ({
+    items: sortedData,
+    columns,
+    selectedRows,
+    onRowClick: handleRowClick,
+    onRowDoubleClick: handleRowDoubleClick,
+    getCellValue
+  }), [sortedData, columns, selectedRows, handleRowClick, handleRowDoubleClick, getCellValue])
 
+  const ROW_HEIGHT = 50
+  const HEADER_HEIGHT = 60
 
   return (
     <Card className={`flex flex-col ${className}`}>
@@ -225,7 +282,7 @@ export function VirtualizedDataTable({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto" style={{ height }}>
+      <div className="flex-1" style={{ height }}>
         {sortedData.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500">
             <div className="text-center">
@@ -234,62 +291,46 @@ export function VirtualizedDataTable({
             </div>
           </div>
         ) : (
-          <div className="w-full h-full overflow-auto">
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
-                <tr>
-                  {columns.map((column) => (
-                    <th
-                      key={String(column.key)}
-                      className={`
-                        px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider
-                        ${column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''}
-                      `}
-                      style={{ width: column.width || 'auto', minWidth: column.width || 120 }}
-                      onClick={() => column.sortable && handleSort(String(column.key))}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">{column.label}</span>
-                        {column.sortable && renderSortIcon(String(column.key))}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedData.slice(0, 1000).map((item) => { // Limit to 1000 rows for performance
-                  const isSelected = selectedRows.includes(item.id)
-                  return (
-                    <tr
-                      key={item.id}
-                      className={`
-                        border-b border-gray-100 hover:bg-gray-50 cursor-pointer
-                        ${isSelected ? 'bg-blue-50 border-blue-200' : ''}
-                      `}
-                      onClick={(event) => handleRowClick(item, event)}
-                      onDoubleClick={() => handleRowDoubleClick(item)}
-                    >
-                      {columns.map((column) => (
-                        <td
-                          key={String(column.key)}
-                          className="px-4 py-3 text-sm text-gray-900 truncate"
-                          style={{ width: column.width || 'auto', minWidth: column.width || 120 }}
-                          title={String(getCellValue(item, column))}
-                        >
-                          {getCellValue(item, column)}
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="h-full flex flex-col">
+            {/* Fixed Header */}
+            <div 
+              className="flex bg-gray-50 border-b border-gray-200 sticky top-0 z-10"
+              style={{ height: HEADER_HEIGHT }}
+            >
+              {columns.map((column) => (
+                <div
+                  key={String(column.key)}
+                  className={`
+                    flex items-center justify-between px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider
+                    ${column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''}
+                  `}
+                  style={{ width: column.width || 'auto', minWidth: column.width || 120 }}
+                  onClick={() => column.sortable && handleSort(String(column.key))}
+                >
+                  <span className="truncate">{column.label}</span>
+                  {column.sortable && renderSortIcon(String(column.key))}
+                </div>
+              ))}
+            </div>
+
+            {/* Virtualized Body */}
+            <div className="flex-1">
+              <List
+                height={height - HEADER_HEIGHT - 80} // Account for header and padding
+                itemCount={sortedData.length}
+                itemSize={ROW_HEIGHT}
+                itemData={itemData}
+                overscanCount={5}
+              >
+                {TableRow}
+              </List>
+            </div>
           </div>
         )}
       </div>
     </Card>
   )
-}
+})
 
 // Default column definitions for DataPoint
 export const defaultDataPointColumns: ColumnDefinition[] = [

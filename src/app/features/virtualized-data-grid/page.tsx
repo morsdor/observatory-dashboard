@@ -421,7 +421,7 @@ function VirtualizedDataGridContent() {
               <div>
                 <h4 className="font-semibold mb-2">Virtualization Engine</h4>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Built on react-virtuoso for efficient row virtualization:
+                  Built on react-virtual for efficient row virtualization:
                 </p>
                 <ul className="text-sm space-y-1 ml-4">
                   <li>• Dynamic viewport calculation based on container size</li>
