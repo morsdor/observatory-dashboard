@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { useDataStreaming } from '@/hooks/useDataStreaming'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -28,7 +28,7 @@ export function WebSocketDemo() {
         clearBuffer,
         simulateSpike,
         injectTestData
-    } = useDataStreaming({ autoConnect: false })
+    } = useGlobalDataStream()
 
     const handleInjectTestData = () => {
         const testData = [{
@@ -234,7 +234,10 @@ export function WebSocketDemo() {
                                                 </div>
                                             </div>
                                             <span className="text-xs text-muted-foreground">
-                                                {point.timestamp || point.timestamp.toLocaleTimeString()}
+                                                {point.timestamp instanceof Date 
+                                                    ? point.timestamp.toLocaleTimeString()
+                                                    : new Date(point.timestamp).toLocaleTimeString()
+                                                }
                                             </span>
                                         </div>
                                         {point.metadata?.injected && (

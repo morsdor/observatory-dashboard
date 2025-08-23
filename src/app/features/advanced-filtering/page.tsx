@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRealPerformanceMetrics, formatMs } from '@/utils/realPerformanceMetrics'
-import { MainNavigation } from '@/components/navigation/MainNavigation'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
+import { PageLayout } from '@/components/layout/PageLayout'
 import { FilterDemo } from '@/components/filters/FilterDemo'
 import { AdvancedFilterBuilderDemo } from '@/components/filters/AdvancedFilterBuilderDemo'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,42 +27,26 @@ import { store } from '@/stores/dashboardStore'
 function AdvancedFilteringContent() {
   const { getCurrentMetrics } = useRealPerformanceMetrics()
   const currentMetrics = getCurrentMetrics()
-  const [filterStats, setFilterStats] = useState({
-    totalRecords: 0,
-    filteredRecords: 0,
-    activeFilters: 0,
-    filterTime: 0,
-    complexityScore: 0
-  })
-
+  const [activeFilters, setActiveFilters] = useState(0)
   const [activeDemo, setActiveDemo] = useState<'basic' | 'advanced'>('basic')
-
-  // Simulate filter performance metrics
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFilterStats(prev => ({
-        totalRecords: Math.max(prev.totalRecords, Math.floor(Math.random() * 50000) + 10000),
-        filteredRecords: Math.floor(Math.random() * 5000) + 1000,
-        activeFilters: Math.floor(Math.random() * 5) + 1,
-        filterTime: Math.random() * 50 + 10,
-        complexityScore: Math.floor(Math.random() * 10) + 1
-      }))
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [])
+  
+  // Get data from global stream
+  const { data, metrics, isConnected } = useGlobalDataStream()
+  
+  // Calculate filter stats from real data
+  const filterStats = {
+    totalRecords: data.length,
+    filteredRecords: Math.floor(data.length * 0.7), // Simulated filtered results
+    activeFilters,
+    filterTime: Math.random() * 50 + 10, // Simulated filter time
+    complexityScore: Math.min(10, Math.floor(activeFilters * 2) + 1)
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <MainNavigation />
-      <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">Advanced Filtering System</h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          Powerful multi-faceted filtering system with visual query builder, complex logical operators, 
-          real-time filtering, and high-performance processing for large datasets.
-        </p>
-      </div>
+    <PageLayout
+      title="Advanced Filtering System"
+      description="Powerful multi-faceted filtering system with visual query builder, complex logical operators, real-time filtering, and high-performance processing for large datasets."
+    >
 
       <Tabs defaultValue="demo" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -495,8 +480,7 @@ function AdvancedFilteringContent() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

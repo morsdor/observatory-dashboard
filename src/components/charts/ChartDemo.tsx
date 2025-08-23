@@ -1,63 +1,23 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import { TimeSeriesChart } from './TimeSeriesChart'
 import { DataPoint } from '@/types'
-
-// Generate sample data for demonstration
-const generateSampleData = (count: number = 100): DataPoint[] => {
-  const now = new Date()
-  const data: DataPoint[] = []
-  
-  for (let i = 0; i < count; i++) {
-    const timestamp = new Date(now.getTime() - (count - i) * 60000) // 1 minute intervals
-    const value = 50 + Math.sin(i * 0.1) * 20 + (Math.random() - 0.5) * 10 // Sine wave with noise
-    
-    data.push({
-      id: `point-${i}`,
-      timestamp,
-      value,
-      category: 'demo',
-      metadata: { index: i },
-      source: 'demo-generator'
-    })
-  }
-  
-  return data
-}
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
 
 export const ChartDemo: React.FC = () => {
-  const [data, setData] = useState<DataPoint[]>([])
   const [hoveredPoint, setHoveredPoint] = useState<DataPoint | null>(null)
-
-  useEffect(() => {
-    // Generate initial data
-    setData(generateSampleData(100))
-    
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setData(prevData => {
-        const newData = [...prevData]
-        const lastTimestamp = newData[newData.length - 1]?.timestamp || new Date()
-        const newTimestamp = new Date(lastTimestamp.getTime() + 60000)
-        const newValue = 50 + Math.sin(newData.length * 0.1) * 20 + (Math.random() - 0.5) * 10
-        
-        newData.push({
-          id: `point-${newData.length}`,
-          timestamp: newTimestamp,
-          value: newValue,
-          category: 'demo',
-          metadata: { index: newData.length },
-          source: 'demo-generator'
-        })
-        
-        // Keep only last 100 points
-        return newData.slice(-100)
-      })
-    }, 2000) // Add new point every 2 seconds
-    
-    return () => clearInterval(interval)
-  }, [])
+  
+  // Use global data stream
+  const { data: globalData, status, metrics } = useGlobalDataStream()
+  
+  // Use last 1000 points for chart performance
+  const chartData = useMemo(() => {
+    const maxPoints = 1000
+    return globalData.length > maxPoints 
+      ? globalData.slice(-maxPoints)
+      : globalData
+  }, [globalData])
 
   const handleHover = (point: DataPoint | null) => {
     setHoveredPoint(point)
@@ -71,8 +31,12 @@ export const ChartDemo: React.FC = () => {
         <div className="mb-4">
           <p className="text-gray-600">
             This demo shows a real-time updating time series chart built with HTML5 Canvas and D3.js.
-            The chart supports zoom, pan, and hover interactions.
+            The chart supports zoom, pan, and hover interactions. Data is streamed from the global data source.
           </p>
+          <div className="mt-2 text-sm text-blue-600">
+            Status: {status} | Data Points: {globalData.length.toLocaleString()} | 
+            Rate: {metrics ? `${Math.round(metrics.dataPointsPerSecond)}/s` : '0/s'}
+          </div>
         </div>
 
         {hoveredPoint && (
@@ -86,22 +50,31 @@ export const ChartDemo: React.FC = () => {
         )}
 
         <div className="border rounded-lg p-4 bg-gray-50">
-          <TimeSeriesChart
-            data={data}
-            width={800}
-            height={400}
-            onHover={handleHover}
-            enableZoom={true}
-            enablePan={true}
-            showGrid={true}
-            lineColor="#3b82f6"
-            lineWidth={2}
-          />
+          {chartData.length > 0 ? (
+            <TimeSeriesChart
+              data={chartData}
+              width={800}
+              height={400}
+              onHover={handleHover}
+              enableZoom={true}
+              enablePan={true}
+              showGrid={true}
+              lineColor="#3b82f6"
+              lineWidth={2}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-96 text-gray-500">
+              <div className="text-center">
+                <p>No data available</p>
+                <p className="text-sm">Start streaming from the global control to see data</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-4 text-sm text-gray-500">
-          <p>Data points: {data.length}</p>
-          <p>Updates every 2 seconds</p>
+          <p>Chart data points: {chartData.length.toLocaleString()}</p>
+          <p>Total data points: {globalData.length.toLocaleString()}</p>
           <p>Use mouse wheel to zoom, drag to pan, hover for details</p>
         </div>
       </div>

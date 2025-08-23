@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useMemo, useState, memo } from 'react'
-import { useDataStreaming } from '@/hooks/useDataStreaming'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart'
 import { VirtualizedTable, defaultDataPointColumns } from './VirtualizedTable'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,7 +32,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
   const [chartHeight] = useState(400)
   const [tableHeight] = useState(400)
 
-  // Initialize data streaming with the new unified service
+  // Use the global data stream
   const {
     data,
     status,
@@ -41,14 +41,7 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
     connect,
     disconnect,
     clearBuffer
-  } = useDataStreaming({
-    autoConnect: true,
-    bufferSize: maxBufferSize,
-    config: {
-      websocketUrl,
-      bufferSize: maxBufferSize
-    }
-  })
+  } = useGlobalDataStream()
 
   // Memoized chart data for performance
   const chartData = useMemo(() => {

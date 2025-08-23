@@ -16,7 +16,7 @@ import {
   TestTube,
   BarChart3
 } from 'lucide-react'
-import { useDataStreaming } from '@/hooks/useDataStreaming'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
 
 export default function MockDataSystemPage() {
   const { 
@@ -26,7 +26,7 @@ export default function MockDataSystemPage() {
     changeScenario, 
     simulateSpike, 
     injectTestData 
-  } = useDataStreaming({ autoConnect: false })
+  } = useGlobalDataStream()
 
   const handleSimulateSpike = () => {
     simulateSpike(5000, 4) // 5 second spike with 4x data rate

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
-import { MainNavigation } from '@/components/navigation/MainNavigation'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
+import { PageLayout } from '@/components/layout/PageLayout'
 import { AdvancedChartDemo } from '@/components/charts/AdvancedChartDemo'
 import { ChartDemo } from '@/components/charts/ChartDemo'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,38 +25,39 @@ export default function AdvancedChartsPage() {
   const [activeDemo, setActiveDemo] = useState<'basic' | 'advanced'>('basic')
   const { getCurrentMetrics } = useRealPerformanceMetrics()
   const [currentMetrics, setCurrentMetrics] = useState(() => getCurrentMetrics())
-  const [chartStats, setChartStats] = useState({
-    dataPoints: 0,
-    renderTime: 0,
-    frameRate: 60,
-    interactions: 0
-  })
+  const [interactions, setInteractions] = useState(0)
+  
+  // Get data from global stream
+  const { data, metrics, isConnected } = useGlobalDataStream()
+  
+  // Calculate chart stats from real data
+  const chartStats = {
+    dataPoints: data.length,
+    renderTime: Math.random() * 10 + 5, // Simulated render time
+    frameRate: currentMetrics.currentFps,
+    interactions
+  }
 
-  // Simulate chart performance metrics
+  // Track interactions
   useEffect(() => {
-    const interval = setInterval(() => {
-      setChartStats(prev => ({
-        dataPoints: prev.dataPoints + Math.floor(Math.random() * 10) + 5,
-        renderTime: Math.random() * 10 + 5,
-        frameRate: 58 + Math.random() * 4,
-        interactions: prev.interactions + (Math.random() > 0.8 ? 1 : 0)
-      }))
-    }, 1000)
-
-    return () => clearInterval(interval)
+    const handleInteraction = () => setInteractions(prev => prev + 1)
+    
+    // Add event listeners for chart interactions
+    document.addEventListener('mousedown', handleInteraction)
+    document.addEventListener('wheel', handleInteraction)
+    
+    return () => {
+      document.removeEventListener('mousedown', handleInteraction)
+      document.removeEventListener('wheel', handleInteraction)
+    }
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
-      <MainNavigation />
-      <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">Advanced Charts</h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          High-performance canvas-based charts with D3.js integration, supporting real-time updates, 
-          interactive features, and multiple visualization types for large datasets.
-        </p>
-      </div>
+    <PageLayout
+      title="Advanced Charts"
+      description="High-performance canvas-based charts with D3.js integration, supporting real-time updates, interactive features, and multiple visualization types for large datasets."
+    >
+
 
       <Tabs defaultValue="demo" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -450,7 +452,6 @@ export default function AdvancedChartsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-    </div>
+    </PageLayout>
   )
 }

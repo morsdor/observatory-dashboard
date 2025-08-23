@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
-import { MainNavigation } from '@/components/navigation/MainNavigation'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
+import { PageLayout } from '@/components/layout/PageLayout'
 import { DataTableDemo } from '@/components/dashboard/DataTableDemo'
 import { VirtualizationDemo } from '@/components/dashboard/VirtualizationDemo'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,42 +26,26 @@ import { store } from '@/stores/dashboardStore'
 function VirtualizedDataGridContent() {
   const { getCurrentMetrics } = useRealPerformanceMetrics()
   const currentMetrics = getCurrentMetrics()
-  const [gridStats, setGridStats] = useState({
-    totalRows: 0,
-    visibleRows: 0,
-    selectedRows: 0,
-    renderTime: 0,
-    memoryUsage: 0,
+  const [selectedRows, setSelectedRows] = useState(0)
+  
+  // Get data from global stream
+  const { data, metrics, isConnected } = useGlobalDataStream()
+  
+  // Calculate grid stats from real data
+  const gridStats = {
+    totalRows: data.length,
+    visibleRows: Math.min(50, data.length), // Typical virtualized viewport
+    selectedRows,
+    renderTime: Math.random() * 5 + 2, // Simulated render time
+    memoryUsage: metrics ? metrics.memoryUsage : 0,
     scrollPosition: 0
-  })
-
-  // Simulate grid performance metrics
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGridStats(prev => ({
-        totalRows: Math.max(prev.totalRows, Math.floor(Math.random() * 50000) + 10000),
-        visibleRows: 20 + Math.floor(Math.random() * 30),
-        selectedRows: Math.floor(Math.random() * 10),
-        renderTime: Math.random() * 5 + 2,
-        memoryUsage: Math.random() * 20 + 15,
-        scrollPosition: Math.random() * 100
-      }))
-    }, 2000)
-
-    return () => clearInterval(interval)
-  }, [])
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <MainNavigation />
-      <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">Virtualized Data Grid</h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          High-performance data table supporting 100,000+ rows with smooth scrolling, 
-          dynamic columns, sorting, filtering, and row selection using virtualization techniques.
-        </p>
-      </div>
+    <PageLayout
+      title="Virtualized Data Grid"
+      description="High-performance data table supporting 100,000+ rows with smooth scrolling, dynamic columns, sorting, filtering, and row selection using virtualization techniques."
+    >
 
       <Tabs defaultValue="demo" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -478,8 +463,7 @@ function VirtualizedDataGridContent() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-    </div>
+    </PageLayout>
   )
 }
 

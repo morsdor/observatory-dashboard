@@ -27,7 +27,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react'
-import { useDataStreaming } from '@/hooks/useDataStreaming'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
 import type { DataScenario } from '@/services/dataStreamingService'
 
 export function GlobalStreamingControl() {
@@ -43,7 +43,7 @@ export function GlobalStreamingControl() {
     clearBuffer,
     changeScenario,
     updateConfig
-  } = useDataStreaming({ autoConnect: false })
+  } = useGlobalDataStream()
 
   const getStatusIcon = () => {
     switch (status) {

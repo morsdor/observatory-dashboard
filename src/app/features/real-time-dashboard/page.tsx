@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { Provider } from 'react-redux'
 import { store } from '@/stores/dashboardStore'
-import { useDataStreaming } from '@/hooks/useDataStreaming'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
 
 function RealTimeDashboardContent() {
   const { getCurrentMetrics } = useRealPerformanceMetrics()
@@ -27,7 +27,7 @@ function RealTimeDashboardContent() {
     isConnected, 
     metrics, 
     data 
-  } = useDataStreaming({ autoConnect: false })
+  } = useGlobalDataStream()
 
   return (
     <PageLayout

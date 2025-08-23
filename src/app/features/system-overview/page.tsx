@@ -22,12 +22,12 @@ import {
   Layers,
   GitBranch
 } from 'lucide-react'
-import { useDataStreaming } from '@/hooks/useDataStreaming'
+import { useGlobalDataStream } from '@/providers/DataStreamProvider'
 
 export default function SystemOverviewPage() {
   const { getCurrentMetrics } = useRealPerformanceMetrics()
   const currentMetrics = getCurrentMetrics()
-  const { metrics: streamingMetrics, status } = useDataStreaming({ autoConnect: false })
+  const { metrics: streamingMetrics, status } = useGlobalDataStream()
   
   const [systemStats, setSystemStats] = useState({
     totalComponents: 45,
