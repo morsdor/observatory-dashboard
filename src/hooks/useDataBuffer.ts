@@ -128,8 +128,10 @@ export function useDataBuffer(config: DataBufferConfig = {}): DataBufferHookRetu
       const uniqueData = prevData.filter((point, index, array) => {
         if (index === 0) return true
         const prev = array[index - 1]
+        const pointTime = point.timestamp instanceof Date ? point.timestamp.getTime() : new Date(point.timestamp).getTime()
+        const prevTime = prev.timestamp instanceof Date ? prev.timestamp.getTime() : new Date(prev.timestamp).getTime()
         return !(
-          Math.abs(point.timestamp.getTime() - prev.timestamp.getTime()) < 1000 &&
+          Math.abs(pointTime - prevTime) < 1000 &&
           Math.abs(point.value - prev.value) < 0.001 &&
           point.category === prev.category
         )

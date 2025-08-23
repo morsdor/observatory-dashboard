@@ -76,14 +76,26 @@ export function useWebSocket(config: WebSocketConfig): WebSocketHookReturn {
           
           // Validate incoming data
           if (Array.isArray(data)) {
-            const { valid, invalid } = validateDataArray(DataPointSchema, data)
+            // Convert Date objects to ISO strings for validation
+            const normalizedData = data.map(item => ({
+              ...item,
+              timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
+            }))
+            
+            const { valid, invalid } = validateDataArray(DataPointSchema, normalizedData)
             
             if (invalid.length > 0) {
               console.warn('Invalid data points received:', invalid)
             }
             
             if (valid.length > 0) {
-              setLastMessage(valid)
+              // Convert timestamp strings back to Date objects for internal use
+              const processedData = valid.map(item => ({
+                ...item,
+                timestamp: new Date(item.timestamp),
+                metadata: item.metadata || {}
+              }))
+              setLastMessage(processedData as DataPoint[])
             }
           } else {
             console.warn('Received non-array data:', data)

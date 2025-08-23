@@ -9,7 +9,7 @@ import { DataPoint } from '@/types'
 import { AdvancedChart } from './AdvancedChart'
 import { ChartConfigPanel } from './ChartConfigPanel'
 import { ChartConfiguration, ChartSyncConfiguration, DEFAULT_CHART_CONFIG, DEFAULT_SYNC_CONFIG } from './ChartTypes'
-import { generateMockTimeSeriesData } from '@/utils/mockDataGenerator'
+import { generateTimeSeriesData } from '@/utils/mockDataGenerator'
 
 export interface AdvancedChartDemoProps {
   className?: string
@@ -97,15 +97,14 @@ export const AdvancedChartDemo: React.FC<AdvancedChartDemoProps> = ({
     const endTime = new Date()
     const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000) // 24 hours ago
 
-    return generateMockTimeSeriesData({
-      count,
-      startTime,
-      endTime,
+    return generateTimeSeriesData({
+      startDate: startTime,
+      endDate: endTime,
+      pointsPerHour: Math.floor(count / 24), // Distribute over 24 hours
       categories: ['cpu', 'memory', 'network'],
       sources: ['server-1', 'server-2'],
-      valueRange: [0, 100],
-      addNoise: true,
-      trendStrength: 0.3
+      valueRange: { min: 0, max: 100 },
+      noiseLevel: 0.3
     })
   }, [dataSize])
 

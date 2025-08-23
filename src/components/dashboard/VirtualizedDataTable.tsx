@@ -41,6 +41,21 @@ export function VirtualizedDataTable({
   onRowDoubleClick,
   className = ''
 }: VirtualizedDataTableProps) {
+  // Debug logging
+  React.useEffect(() => {
+    console.log('VirtualizedDataTable - Data length:', data.length)
+    if (data.length > 0) {
+      console.log('VirtualizedDataTable - Sample data:', data[0])
+      console.log('VirtualizedDataTable - Data types:', {
+        id: typeof data[0].id,
+        timestamp: typeof data[0].timestamp,
+        value: typeof data[0].value,
+        category: typeof data[0].category,
+        source: typeof data[0].source,
+        metadata: typeof data[0].metadata
+      })
+    }
+  }, [data.length])
   const dispatch = useAppDispatch()
   const selectedRows = useAppSelector((state) => state.ui.selectedRows)
   
@@ -260,13 +275,22 @@ export function VirtualizedDataTable({
       </div>
       
       <div className="flex-1" style={{ height }}>
-        <TableVirtuoso
-          data={sortedData}
-          fixedHeaderContent={TableHeader}
-          itemContent={TableRow}
-          style={{ height: '100%' }}
-          overscan={10}
-        />
+        {sortedData.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <p>No data to display</p>
+              <p className="text-sm">Waiting for data...</p>
+            </div>
+          </div>
+        ) : (
+          <TableVirtuoso
+            data={sortedData}
+            fixedHeaderContent={TableHeader}
+            itemContent={TableRow}
+            style={{ height: '100%' }}
+            overscan={10}
+          />
+        )}
       </div>
     </Card>
   )
@@ -285,7 +309,10 @@ export const defaultDataPointColumns: ColumnDefinition[] = [
     label: 'Timestamp',
     width: 180,
     sortable: true,
-    formatter: (value: Date) => value.toLocaleString()
+    formatter: (value: unknown) => {
+      const date = value instanceof Date ? value : new Date(String(value))
+      return date.toLocaleString()
+    }
   },
   {
     key: 'value',

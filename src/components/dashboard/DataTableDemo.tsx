@@ -74,8 +74,8 @@ const enhancedColumns: ColumnDefinition[] = [
     label: 'ID',
     width: 180,
     sortable: true,
-    formatter: (value: string) => (
-      <span className="font-mono text-xs text-gray-600">{value}</span>
+    formatter: (value: unknown) => (
+      <span className="font-mono text-xs text-gray-600">{String(value)}</span>
     )
   },
   {
@@ -83,18 +83,22 @@ const enhancedColumns: ColumnDefinition[] = [
     label: 'Timestamp',
     width: 160,
     sortable: true,
-    formatter: (value: Date) => (
-      <span className="text-sm">
-        {value.toLocaleTimeString()}
-      </span>
-    )
+    formatter: (value: unknown) => {
+      const date = value instanceof Date ? value : new Date(String(value))
+      return (
+        <span className="text-sm">
+          {date.toLocaleTimeString()}
+        </span>
+      )
+    }
   },
   {
     key: 'value',
     label: 'Value',
     width: 120,
     sortable: true,
-    formatter: (value: number, row: DataPoint) => {
+    formatter: (value: unknown, row: DataPoint) => {
+      const numValue = typeof value === 'number' ? value : parseFloat(String(value)) || 0
       const unit = row.metadata?.unit || ''
       const alertLevel = row.metadata?.alert_level || 'low'
       
@@ -105,7 +109,7 @@ const enhancedColumns: ColumnDefinition[] = [
       
       return (
         <span className={`font-semibold ${colorClass}`}>
-          {value.toFixed(2)} {unit}
+          {numValue.toFixed(2)} {unit}
         </span>
       )
     }
@@ -115,9 +119,9 @@ const enhancedColumns: ColumnDefinition[] = [
     label: 'Category',
     width: 100,
     sortable: true,
-    formatter: (value: string) => (
+    formatter: (value: unknown) => (
       <Badge variant="secondary" className="text-xs">
-        {value}
+        {String(value)}
       </Badge>
     )
   },
@@ -126,8 +130,8 @@ const enhancedColumns: ColumnDefinition[] = [
     label: 'Source',
     width: 120,
     sortable: true,
-    formatter: (value: string) => (
-      <span className="font-medium text-blue-600">{value}</span>
+    formatter: (value: unknown) => (
+      <span className="font-medium text-blue-600">{String(value)}</span>
     )
   },
   {
@@ -136,11 +140,14 @@ const enhancedColumns: ColumnDefinition[] = [
     width: 100,
     sortable: true,
     accessor: (row: DataPoint) => row.metadata?.environment,
-    formatter: (value: string) => (
-      <Badge variant={value === 'production' ? 'default' : 'outline'} className="text-xs">
-        {value}
-      </Badge>
-    )
+    formatter: (value: unknown) => {
+      const strValue = String(value || '')
+      return (
+        <Badge variant={strValue === 'production' ? 'default' : 'outline'} className="text-xs">
+          {strValue}
+        </Badge>
+      )
+    }
   },
   {
     key: 'region',
@@ -148,8 +155,8 @@ const enhancedColumns: ColumnDefinition[] = [
     width: 100,
     sortable: true,
     accessor: (row: DataPoint) => row.metadata?.region,
-    formatter: (value: string) => (
-      <span className="text-sm text-gray-600">{value}</span>
+    formatter: (value: unknown) => (
+      <span className="text-sm text-gray-600">{String(value || '')}</span>
     )
   },
   {
@@ -158,15 +165,16 @@ const enhancedColumns: ColumnDefinition[] = [
     width: 100,
     sortable: true,
     accessor: (row: DataPoint) => row.metadata?.alert_level,
-    formatter: (value: string) => {
+    formatter: (value: unknown) => {
+      const strValue = String(value || 'low')
       const variant = 
-        value === 'high' ? 'destructive' :
-        value === 'medium' ? 'secondary' :
+        strValue === 'high' ? 'destructive' :
+        strValue === 'medium' ? 'secondary' :
         'outline'
       
       return (
         <Badge variant={variant} className="text-xs">
-          {value}
+          {strValue}
         </Badge>
       )
     }

@@ -127,7 +127,7 @@ export function DashboardLayout({
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <ErrorBoundary>
+        {/* <ErrorBoundary>
           <div className={`transition-all duration-300 ${sidebarCollapsed ? 'w-0' : 'w-64'}`}>
             <DashboardSidebar
               activeView={activeView}
@@ -135,7 +135,7 @@ export function DashboardLayout({
               className="h-full"
             />
           </div>
-        </ErrorBoundary>
+        </ErrorBoundary> */}
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">

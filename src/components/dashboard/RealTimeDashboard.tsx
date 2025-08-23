@@ -43,6 +43,15 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
     autoConnect: true
   })
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('RealTimeDashboard - Data length:', realTime.data.length)
+    console.log('RealTimeDashboard - Connection status:', realTime.connectionStatus)
+    if (realTime.data.length > 0) {
+      console.log('RealTimeDashboard - Sample data:', realTime.data[0])
+    }
+  }, [realTime.data.length, realTime.connectionStatus])
+
   // Memoized chart data for performance
   const chartData = useMemo(() => {
     // Limit chart data to last 1000 points for performance
@@ -332,11 +341,19 @@ const RealTimeDashboard = memo<RealTimeDashboardProps>(function RealTimeDashboar
           <CardTitle>Real-Time Data Grid</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <VirtualizedDataTable
-            data={realTime.data}
-            columns={defaultDataPointColumns}
-            height={tableHeight}
-          />
+          {realTime.data.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <p>No data available</p>
+              <p className="text-sm">Connection Status: {realTime.connectionStatus}</p>
+              <p className="text-sm">Data Length: {realTime.data.length}</p>
+            </div>
+          ) : (
+            <VirtualizedDataTable
+              data={realTime.data}
+              columns={defaultDataPointColumns}
+              height={tableHeight}
+            />
+          )}
         </CardContent>
       </Card>
     </div>
