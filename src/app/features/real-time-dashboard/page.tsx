@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { RealTimeDashboard } from '@/components/dashboard/RealTimeDashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +24,8 @@ import { Provider } from 'react-redux'
 import { store } from '@/stores/dashboardStore'
 
 function RealTimeDashboardContent() {
+  const { getCurrentMetrics } = useRealPerformanceMetrics()
+  const currentMetrics = getCurrentMetrics()
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected')
   const [dataPointsReceived, setDataPointsReceived] = useState(0)
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
@@ -243,7 +246,7 @@ function RealTimeDashboardContent() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Frame Rate:</span>
-                  <span className="text-sm text-green-600">60 FPS</span>
+                  <span className="text-sm text-green-600">{formatFps(currentMetrics.currentFps)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Memory Usage:</span>

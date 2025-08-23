@@ -35,8 +35,8 @@ const PerformanceMonitorDashboard = memo<PerformanceMonitorDashboardProps>(
       enabled: autoStart,
       fpsMonitoringInterval: 1000,
       memoryMonitoringInterval: 2000,
-      renderTimeThreshold: 16.67, // 60fps
-      memoryThreshold: 100 // 100MB
+      renderTimeThreshold: 16.67, // 60fps target
+      memoryThreshold: 100 // Dynamic threshold will be calculated based on browser capabilities
     })
 
     const [benchmark] = useState(() => new PerformanceBenchmark())
@@ -273,10 +273,10 @@ const PerformanceMonitorDashboard = memo<PerformanceMonitorDashboardProps>(
                   <div className="mt-4">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>Peak: {formatBytes(performanceMonitor.peakMemory * 1024 * 1024)}</span>
-                      <span>Limit: 200MB</span>
+                      <span>Limit: {performanceMonitor.realMetrics?.browserMemory?.jsHeapSizeLimit ? formatBytes(performanceMonitor.realMetrics.browserMemory.jsHeapSizeLimit) : '200MB'}</span>
                     </div>
                     <Progress 
-                      value={Math.min((performanceMonitor.currentMemory / 200) * 100, 100)} 
+                      value={Math.min((performanceMonitor.currentMemory / (performanceMonitor.realMetrics?.browserMemory?.jsHeapSizeLimit ? (performanceMonitor.realMetrics.browserMemory.jsHeapSizeLimit / (1024 * 1024)) : 200)) * 100, 100)} 
                       className="h-2"
                     />
                   </div>

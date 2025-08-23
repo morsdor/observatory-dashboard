@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { AdvancedChartDemo } from '@/components/charts/AdvancedChartDemo'
 import { ChartDemo } from '@/components/charts/ChartDemo'
@@ -21,6 +22,8 @@ import {
 
 export default function AdvancedChartsPage() {
   const [activeDemo, setActiveDemo] = useState<'basic' | 'advanced'>('basic')
+  const { getCurrentMetrics } = useRealPerformanceMetrics()
+  const [currentMetrics, setCurrentMetrics] = useState(() => getCurrentMetrics())
   const [chartStats, setChartStats] = useState({
     dataPoints: 0,
     renderTime: 0,
@@ -365,7 +368,7 @@ export default function AdvancedChartsPage() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">60 FPS</div>
+                  <div className="text-2xl font-bold text-green-600">{formatFps(currentMetrics.currentFps)}</div>
                   <div className="text-sm text-muted-foreground">Target Frame Rate</div>
                 </div>
                 <div className="text-center">

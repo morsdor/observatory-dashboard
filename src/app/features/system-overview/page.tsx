@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +25,8 @@ import {
 } from 'lucide-react'
 
 export default function SystemOverviewPage() {
+  const { getCurrentMetrics } = useRealPerformanceMetrics()
+  const currentMetrics = getCurrentMetrics()
   const [systemStats, setSystemStats] = useState({
     totalComponents: 45,
     activeConnections: 3,
@@ -410,7 +413,7 @@ export default function SystemOverviewPage() {
                 <div>
                   <h4 className="font-semibold mb-3">Visualization</h4>
                   <ul className="space-y-2 text-sm">
-                    <li>• Rendering: 60 FPS maintained</li>
+                    <li>• Rendering: {formatFps(currentMetrics.currentFps)} maintained</li>
                     <li>• Canvas: &lt;16ms frame budget</li>
                     <li>• Virtualization: 20-50 DOM elements</li>
                     <li>• Interactions: &lt;100ms response</li>
@@ -467,7 +470,7 @@ export default function SystemOverviewPage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Frame Rate:</span>
-                  <span className="text-sm text-green-600">60 FPS</span>
+                  <span className="text-sm text-green-600">{formatFps(currentMetrics.currentFps)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Render Time:</span>
@@ -507,7 +510,7 @@ export default function SystemOverviewPage() {
                   <div className="text-xs text-muted-foreground">Points supported</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">60 FPS</div>
+                  <div className="text-2xl font-bold text-purple-600">{formatFps(currentMetrics.currentFps)}</div>
                   <div className="text-sm font-medium">Performance</div>
                   <div className="text-xs text-muted-foreground">Consistent rendering</div>
                 </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRealPerformanceMetrics, formatMs } from '@/utils/realPerformanceMetrics'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { FilterDemo } from '@/components/filters/FilterDemo'
 import { AdvancedFilterBuilderDemo } from '@/components/filters/AdvancedFilterBuilderDemo'
@@ -23,6 +24,8 @@ import { Provider } from 'react-redux'
 import { store } from '@/stores/dashboardStore'
 
 function AdvancedFilteringContent() {
+  const { getCurrentMetrics } = useRealPerformanceMetrics()
+  const currentMetrics = getCurrentMetrics()
   const [filterStats, setFilterStats] = useState({
     totalRecords: 0,
     filteredRecords: 0,
@@ -355,7 +358,7 @@ function AdvancedFilteringContent() {
                       <div className="w-32 bg-gray-200 rounded-full h-2">
                         <div className="bg-orange-600 h-2 rounded-full" style={{ width: '60%' }}></div>
                       </div>
-                      <span className="text-sm font-medium">~200ms</span>
+                      <span className="text-sm font-medium">~{formatMs(currentMetrics.renderTime || 200)}</span>
                     </div>
                   </div>
                 </div>
@@ -422,7 +425,7 @@ function AdvancedFilteringContent() {
                     <li>• Deep object filtering</li>
                   </ul>
                   <div className="mt-2 text-xs text-muted-foreground">
-                    Processing: 50-200ms for 100k records
+                    Processing: {formatMs(Math.max(50, currentMetrics.renderTime || 100))}-{formatMs(Math.max(200, (currentMetrics.renderTime || 100) * 2))} for 100k records
                   </div>
                 </div>
               </div>

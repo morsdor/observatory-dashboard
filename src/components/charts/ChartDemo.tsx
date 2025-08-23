@@ -11,7 +11,7 @@ const generateSampleData = (count: number = 100): DataPoint[] => {
   
   for (let i = 0; i < count; i++) {
     const timestamp = new Date(now.getTime() - (count - i) * 60000) // 1 minute intervals
-    const value = 50 + Math.sin(i * 0.1) * 20 + Math.random() * 10 - 5 // Sine wave with noise
+    const value = 50 + Math.sin(i * 0.1) * 20 + (Math.random() - 0.5) * 10 // Sine wave with noise
     
     data.push({
       id: `point-${i}`,
@@ -40,7 +40,7 @@ export const ChartDemo: React.FC = () => {
         const newData = [...prevData]
         const lastTimestamp = newData[newData.length - 1]?.timestamp || new Date()
         const newTimestamp = new Date(lastTimestamp.getTime() + 60000)
-        const newValue = 50 + Math.sin(newData.length * 0.1) * 20 + Math.random() * 10 - 5
+        const newValue = 50 + Math.sin(newData.length * 0.1) * 20 + (Math.random() - 0.5) * 10
         
         newData.push({
           id: `point-${newData.length}`,

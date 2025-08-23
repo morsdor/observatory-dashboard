@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
 import Link from 'next/link'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -94,6 +95,8 @@ const features = [
 ]
 
 export default function FeaturesPage() {
+  const { getCurrentMetrics } = useRealPerformanceMetrics()
+  const currentMetrics = getCurrentMetrics()
   return (
     <div className="min-h-screen bg-background">
       <MainNavigation />
@@ -169,7 +172,7 @@ export default function FeaturesPage() {
             <div className="text-sm text-muted-foreground">Update Latency</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-primary">60fps</div>
+            <div className="text-3xl font-bold text-primary">{formatFps(currentMetrics.currentFps)}</div>
             <div className="text-sm text-muted-foreground">Rendering Performance</div>
           </div>
           <div className="text-center">

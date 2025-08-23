@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppDispatch } from '@/stores/dashboardStore'
 import { updateMetrics } from '@/stores/dashboardStore'
+import { getRealPerformanceMonitor, RealPerformanceMetrics } from '@/utils/realPerformanceMetrics'
 
 export interface PerformanceMonitorConfig {
   enabled?: boolean
@@ -70,16 +71,14 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
   
   // State
   const [isMonitoring, setIsMonitoring] = useState(false)
-  const [currentFps, setCurrentFps] = useState(60)
-  const [averageFps, setAverageFps] = useState(60)
-  const [currentMemory, setCurrentMemory] = useState(0)
-  const [peakMemory, setPeakMemory] = useState(0)
+  const [realMetrics, setRealMetrics] = useState<RealPerformanceMetrics | null>(null)
   const [renderTimes, setRenderTimes] = useState<number[]>([])
-  const [networkLatency, setNetworkLatency] = useState(0)
-  const [averageNetworkLatency, setAverageNetworkLatency] = useState(0)
   const [dataThroughput, setDataThroughput] = useState(0)
   const [averageDataThroughput, setAverageDataThroughput] = useState(0)
   const [alerts, setAlerts] = useState<PerformanceAlert[]>([])
+  
+  // Get real performance monitor instance
+  const realPerformanceMonitor = getRealPerformanceMonitor()
 
   // Refs for monitoring
   const memoryIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -112,87 +111,62 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     setAlerts([])
   }, [])
 
-  // Measure FPS
-  const measureFps = useCallback(() => {
-    const now = performance.now()
-    const deltaTime = now - lastFrameTimeRef.current
+  // Update real metrics periodically
+  const updateRealMetrics = useCallback(() => {
+    if (!isMonitoring) return
     
-    if (deltaTime >= fpsMonitoringInterval) {
-      const fps = Math.round((frameCountRef.current * 1000) / deltaTime)
-      
-      setCurrentFps(fps)
-      fpsHistoryRef.current.push(fps)
-      
-      // Keep only last 60 measurements (1 minute at 1 second intervals)
-      if (fpsHistoryRef.current.length > 60) {
-        fpsHistoryRef.current = fpsHistoryRef.current.slice(-60)
-      }
-      
-      // Calculate average FPS
-      const avgFps = fpsHistoryRef.current.reduce((sum, f) => sum + f, 0) / fpsHistoryRef.current.length
-      setAverageFps(Math.round(avgFps))
-      
-      // Update store
-      dispatch(updateMetrics({ fps }))
-      
-      // Check for FPS alerts
-      if (fps < 30) {
-        addAlert('fps', `Low FPS detected: ${fps}`, fps, 30)
-      }
-      
-      frameCountRef.current = 0
-      lastFrameTimeRef.current = now
+    const metrics = realPerformanceMonitor.getCurrentMetrics()
+    setRealMetrics(metrics)
+    
+    // Update store with real metrics
+    dispatch(updateMetrics({ 
+      fps: metrics.currentFps,
+      memoryUsage: metrics.currentMemory
+    }))
+    
+    // Check for performance alerts using real data
+    if (metrics.currentFps < 30) {
+      addAlert('fps', `Low FPS detected: ${metrics.currentFps}`, metrics.currentFps, 30)
     }
     
-    frameCountRef.current++
-    
-    if (isMonitoring) {
-      requestAnimationFrame(measureFps)
+    if (metrics.currentMemory > memoryThreshold) {
+      addAlert('memory', `High memory usage: ${metrics.currentMemory.toFixed(1)}MB`, metrics.currentMemory, memoryThreshold)
     }
-  }, [dispatch, fpsMonitoringInterval, isMonitoring, addAlert])
+    
+    if (metrics.networkLatency > networkLatencyThreshold) {
+      addAlert('network_latency', `High network latency: ${metrics.networkLatency.toFixed(2)}ms`, metrics.networkLatency, networkLatencyThreshold)
+    }
+  }, [dispatch, isMonitoring, memoryThreshold, networkLatencyThreshold, addAlert, realPerformanceMonitor])
 
-  // Measure memory usage
-  const measureMemory = useCallback(() => {
-    if ('memory' in performance) {
-      const memInfo = (performance as any).memory
-      const memoryMB = memInfo.usedJSHeapSize / (1024 * 1024)
-      
-      setCurrentMemory(memoryMB)
-      setPeakMemory(prev => Math.max(prev, memoryMB))
-      
-      // Update store
-      dispatch(updateMetrics({ memoryUsage: memoryMB }))
-      
-      // Check for memory alerts
-      if (memoryMB > memoryThreshold) {
-        addAlert('memory', `High memory usage: ${memoryMB.toFixed(1)}MB`, memoryMB, memoryThreshold)
-      }
-    }
-  }, [dispatch, memoryThreshold, addAlert])
+  // This function is now handled by updateRealMetrics
 
-  // Measure render time
+  // Measure render time using real performance monitor
   const measureRenderTime = useCallback(<T>(fn: () => T): T => {
-    const start = performance.now()
-    const result = fn()
-    const renderTime = performance.now() - start
-    
-    // Update render times
-    setRenderTimes(prev => {
-      const newTimes = [...prev, renderTime].slice(-100) // Keep last 100 measurements
-      renderTimeHistoryRef.current = newTimes
-      return newTimes
+    const result = realPerformanceMonitor.measureRenderTime(() => {
+      const start = performance.now()
+      const fnResult = fn()
+      const renderTime = performance.now() - start
+      
+      // Update render times
+      setRenderTimes(prev => {
+        const newTimes = [...prev, renderTime].slice(-100) // Keep last 100 measurements
+        renderTimeHistoryRef.current = newTimes
+        return newTimes
+      })
+      
+      // Update store
+      dispatch(updateMetrics({ renderTime }))
+      
+      // Check for render time alerts
+      if (renderTime > renderTimeThreshold) {
+        addAlert('render_time', `Slow render detected: ${renderTime.toFixed(2)}ms`, renderTime, renderTimeThreshold)
+      }
+      
+      return fnResult
     })
     
-    // Update store
-    dispatch(updateMetrics({ renderTime }))
-    
-    // Check for render time alerts
-    if (renderTime > renderTimeThreshold) {
-      addAlert('render_time', `Slow render detected: ${renderTime.toFixed(2)}ms`, renderTime, renderTimeThreshold)
-    }
-    
     return result
-  }, [dispatch, renderTimeThreshold, addAlert])
+  }, [dispatch, renderTimeThreshold, addAlert, realPerformanceMonitor])
 
   // Measure async render time
   const measureAsyncRenderTime = useCallback(async <T>(fn: () => Promise<T>): Promise<T> => {
@@ -218,32 +192,10 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     return result
   }, [dispatch, renderTimeThreshold, addAlert])
 
-  // Measure network latency
+  // Measure network latency using real performance monitor
   const measureNetworkLatency = useCallback(async (url: string = '/api/ping'): Promise<number> => {
     try {
-      const start = performance.now()
-      
-      // Use fetch with a small request to measure latency
-      const response = await fetch(url, {
-        method: 'HEAD',
-        cache: 'no-cache',
-        mode: 'cors'
-      })
-      
-      const latency = performance.now() - start
-      
-      // Update network latency
-      setNetworkLatency(latency)
-      networkLatencyHistoryRef.current.push(latency)
-      
-      // Keep only last 60 measurements
-      if (networkLatencyHistoryRef.current.length > 60) {
-        networkLatencyHistoryRef.current = networkLatencyHistoryRef.current.slice(-60)
-      }
-      
-      // Calculate average latency
-      const avgLatency = networkLatencyHistoryRef.current.reduce((sum, l) => sum + l, 0) / networkLatencyHistoryRef.current.length
-      setAverageNetworkLatency(avgLatency)
+      const latency = await realPerformanceMonitor.measureNetworkLatency(url)
       
       // Update store
       dispatch(updateMetrics({ networkLatency: latency }))
@@ -258,7 +210,7 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
       console.warn('Network latency measurement failed:', error)
       return -1
     }
-  }, [dispatch, networkLatencyThreshold, addAlert])
+  }, [dispatch, networkLatencyThreshold, addAlert, realPerformanceMonitor])
 
   // Track data throughput
   const trackDataThroughput = useCallback((dataPointCount: number) => {
@@ -356,13 +308,8 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     
     setIsMonitoring(true)
     
-    // Start FPS monitoring
-    frameCountRef.current = 0
-    lastFrameTimeRef.current = performance.now()
-    requestAnimationFrame(measureFps)
-    
-    // Start memory monitoring
-    memoryIntervalRef.current = setInterval(measureMemory, memoryMonitoringInterval)
+    // Start real metrics monitoring
+    memoryIntervalRef.current = setInterval(updateRealMetrics, fpsMonitoringInterval)
     
     // Start network monitoring
     dataPointCountRef.current = 0
@@ -373,7 +320,7 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     startGCMonitoring()
     
     console.log('Performance monitoring started')
-  }, [isMonitoring, measureFps, measureMemory, memoryMonitoringInterval, monitorNetwork, startGCMonitoring])
+  }, [isMonitoring, updateRealMetrics, fpsMonitoringInterval, monitorNetwork, startGCMonitoring])
 
   // Stop monitoring
   const stop = useCallback(() => {
@@ -403,26 +350,21 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
 
   // Reset metrics
   const reset = useCallback(() => {
-    setCurrentFps(60)
-    setAverageFps(60)
-    setCurrentMemory(0)
-    setPeakMemory(0)
+    setRealMetrics(null)
     setRenderTimes([])
-    setNetworkLatency(0)
-    setAverageNetworkLatency(0)
     setDataThroughput(0)
     setAverageDataThroughput(0)
     setAlerts([])
     
-    fpsHistoryRef.current = []
     renderTimeHistoryRef.current = []
-    networkLatencyHistoryRef.current = []
     dataThroughputHistoryRef.current = []
-    frameCountRef.current = 0
     dataPointCountRef.current = 0
     
+    // Reset real performance monitor
+    realPerformanceMonitor.reset()
+    
     console.log('Performance metrics reset')
-  }, [])
+  }, [realPerformanceMonitor])
 
   // Auto-start if enabled
   useEffect(() => {
@@ -475,14 +417,14 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     // Memory management
     triggerMemoryCleanup,
     
-    // Metrics
-    currentFps,
-    averageFps,
-    currentMemory,
-    peakMemory,
+    // Metrics (using real data when available, fallback to defaults)
+    currentFps: realMetrics?.currentFps ?? 60,
+    averageFps: realMetrics?.averageFps ?? 60,
+    currentMemory: realMetrics?.currentMemory ?? 0,
+    peakMemory: realMetrics?.peakMemory ?? 0,
     renderTimes,
-    networkLatency,
-    averageNetworkLatency,
+    networkLatency: realMetrics?.networkLatency ?? 0,
+    averageNetworkLatency: realMetrics?.rtt ?? 0,
     dataThroughput,
     averageDataThroughput,
     
@@ -491,6 +433,9 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     clearAlerts,
     
     // Status
-    isMonitoring
+    isMonitoring,
+    
+    // Real metrics object for advanced usage
+    realMetrics
   }
 }

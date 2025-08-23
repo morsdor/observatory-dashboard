@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRealPerformanceMetrics, formatFps } from '@/utils/realPerformanceMetrics'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { DataTableDemo } from '@/components/dashboard/DataTableDemo'
 import { VirtualizationDemo } from '@/components/dashboard/VirtualizationDemo'
@@ -22,6 +23,8 @@ import { Provider } from 'react-redux'
 import { store } from '@/stores/dashboardStore'
 
 function VirtualizedDataGridContent() {
+  const { getCurrentMetrics } = useRealPerformanceMetrics()
+  const currentMetrics = getCurrentMetrics()
   const [gridStats, setGridStats] = useState({
     totalRows: 0,
     visibleRows: 0,
@@ -161,7 +164,7 @@ function VirtualizedDataGridContent() {
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span>Scroll Performance</span>
-                    <span>60 FPS</span>
+                    <span>{formatFps(currentMetrics.currentFps)}</span>
                   </div>
                   <Progress value={95} className="h-2" />
                   <p className="text-xs text-muted-foreground mt-1">
@@ -209,7 +212,7 @@ function VirtualizedDataGridContent() {
                     <CheckCircle className="h-4 w-4 mt-0.5 text-green-600" />
                     <div>
                       <div className="font-medium">Smooth Scrolling</div>
-                      <div className="text-muted-foreground">60fps scrolling regardless of dataset size</div>
+                      <div className="text-muted-foreground">{formatFps(currentMetrics.currentFps)} scrolling regardless of dataset size</div>
                     </div>
                   </li>
                   <li className="flex items-start gap-2">
@@ -393,7 +396,7 @@ function VirtualizedDataGridContent() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">60 FPS</div>
+                  <div className="text-2xl font-bold text-green-600">{formatFps(currentMetrics.currentFps)}</div>
                   <div className="text-sm text-muted-foreground">Scroll Performance</div>
                 </div>
                 <div className="text-center">

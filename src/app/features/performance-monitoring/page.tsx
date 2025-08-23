@@ -154,8 +154,8 @@ const performanceMonitor = usePerformanceMonitor({
   enabled: true,
   fpsMonitoringInterval: 1000,
   memoryMonitoringInterval: 2000,
-  renderTimeThreshold: 16.67, // 60fps
-  networkLatencyThreshold: 200, // 200ms
+  renderTimeThreshold: 16.67, // 60fps target
+  networkLatencyThreshold: 200, // 200ms baseline
   dataThroughputThreshold: 1000 // 1000 points/sec
 })
 
