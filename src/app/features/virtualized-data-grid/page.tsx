@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
 import { DataTableDemo } from '@/components/dashboard/DataTableDemo'
+import { VirtualizationDemo } from '@/components/dashboard/VirtualizationDemo'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { 
@@ -172,6 +171,9 @@ function VirtualizedDataGridContent() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Virtualization Demo */}
+          <VirtualizationDemo />
 
           {/* Data Grid Demo */}
           <DataTableDemo />
