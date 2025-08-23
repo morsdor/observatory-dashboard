@@ -75,6 +75,7 @@ export interface PerformanceMetrics {
   dataPointsPerSecond: number
   renderTime: number
   filterTime: number
+  networkLatency?: number
 }
 
 // Export validation schemas and utilities

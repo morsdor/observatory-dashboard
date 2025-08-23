@@ -17,7 +17,9 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Download
+  Download,
+  Wifi,
+  Database
 } from 'lucide-react'
 import { usePerformanceMonitor, PerformanceAlert } from '@/hooks/usePerformanceMonitor'
 import { PerformanceBenchmark, BenchmarkResult } from '@/utils/performanceBenchmark'
@@ -78,6 +80,20 @@ const PerformanceMonitorDashboard = memo<PerformanceMonitorDashboardProps>(
       if (renderTime < 16.67) return { color: 'text-yellow-600', status: 'Good' }
       if (renderTime < 33) return { color: 'text-orange-600', status: 'Slow' }
       return { color: 'text-red-600', status: 'Very Slow' }
+    }, [])
+
+    const getNetworkLatencyStatus = useCallback((latency: number) => {
+      if (latency < 50) return { color: 'text-green-600', status: 'Excellent' }
+      if (latency < 100) return { color: 'text-yellow-600', status: 'Good' }
+      if (latency < 200) return { color: 'text-orange-600', status: 'Fair' }
+      return { color: 'text-red-600', status: 'Poor' }
+    }, [])
+
+    const getDataThroughputStatus = useCallback((throughput: number) => {
+      if (throughput < 100) return { color: 'text-green-600', status: 'Low' }
+      if (throughput < 500) return { color: 'text-yellow-600', status: 'Moderate' }
+      if (throughput < 1000) return { color: 'text-orange-600', status: 'High' }
+      return { color: 'text-red-600', status: 'Very High' }
     }, [])
 
     // Benchmark operations
@@ -149,6 +165,8 @@ const PerformanceMonitorDashboard = memo<PerformanceMonitorDashboardProps>(
         case 'fps': return <Activity className="w-4 h-4" />
         case 'memory': return <MemoryStick className="w-4 h-4" />
         case 'render_time': return <Zap className="w-4 h-4" />
+        case 'network_latency': return <Wifi className="w-4 h-4" />
+        case 'data_throughput': return <Database className="w-4 h-4" />
         default: return <AlertTriangle className="w-4 h-4" />
       }
     }, [])
@@ -214,7 +232,7 @@ const PerformanceMonitorDashboard = memo<PerformanceMonitorDashboardProps>(
 
           <TabsContent value="metrics" className="space-y-4">
             {/* Current Performance Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -291,6 +309,56 @@ const PerformanceMonitorDashboard = memo<PerformanceMonitorDashboardProps>(
                   </div>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Network Latency</p>
+                      <p className="text-2xl font-bold">{formatMs(performanceMonitor.networkLatency)}</p>
+                      <p className={`text-sm ${getNetworkLatencyStatus(performanceMonitor.networkLatency).color}`}>
+                        {getNetworkLatencyStatus(performanceMonitor.networkLatency).status}
+                      </p>
+                    </div>
+                    <Wifi className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Average: {formatMs(performanceMonitor.averageNetworkLatency)}</span>
+                      <span>Target: &lt;200ms</span>
+                    </div>
+                    <Progress 
+                      value={Math.min((performanceMonitor.networkLatency / 400) * 100, 100)} 
+                      className="h-2"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Data Throughput</p>
+                      <p className="text-2xl font-bold">{Math.round(performanceMonitor.dataThroughput)}</p>
+                      <p className={`text-sm ${getDataThroughputStatus(performanceMonitor.dataThroughput).color}`}>
+                        {getDataThroughputStatus(performanceMonitor.dataThroughput).status}
+                      </p>
+                    </div>
+                    <Database className="w-8 h-8 text-indigo-600" />
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Average: {Math.round(performanceMonitor.averageDataThroughput)} pts/sec</span>
+                      <span>Limit: 1000 pts/sec</span>
+                    </div>
+                    <Progress 
+                      value={Math.min((performanceMonitor.dataThroughput / 1000) * 100, 100)} 
+                      className="h-2"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Memory Management */}
@@ -319,6 +387,50 @@ const PerformanceMonitorDashboard = memo<PerformanceMonitorDashboardProps>(
                   >
                     Trigger Cleanup
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Network Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wifi className="w-5 h-5" />
+                  Network Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Current Latency</span>
+                      <span className="text-sm">{formatMs(performanceMonitor.networkLatency)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Average Latency</span>
+                      <span className="text-sm">{formatMs(performanceMonitor.averageNetworkLatency)}</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => performanceMonitor.measureNetworkLatency()}
+                    >
+                      Test Latency
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Data Throughput</span>
+                      <span className="text-sm">{Math.round(performanceMonitor.dataThroughput)} pts/sec</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Average Throughput</span>
+                      <span className="text-sm">{Math.round(performanceMonitor.averageDataThroughput)} pts/sec</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Monitoring WebSocket data flow
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -8,10 +8,13 @@ export interface PerformanceMonitorConfig {
   memoryMonitoringInterval?: number
   renderTimeThreshold?: number
   memoryThreshold?: number
+  networkLatencyThreshold?: number
+  dataThroughputThreshold?: number
+  networkMonitoringInterval?: number
 }
 
 export interface PerformanceAlert {
-  type: 'fps' | 'memory' | 'render_time'
+  type: 'fps' | 'memory' | 'render_time' | 'network_latency' | 'data_throughput'
   message: string
   value: number
   threshold: number
@@ -27,6 +30,7 @@ export interface PerformanceMonitorReturn {
   // Performance measurement
   measureRenderTime: <T>(fn: () => T) => T
   measureAsyncRenderTime: <T>(fn: () => Promise<T>) => Promise<T>
+  measureNetworkLatency: (url?: string) => Promise<number>
   
   // Memory management
   triggerMemoryCleanup: () => void
@@ -37,6 +41,10 @@ export interface PerformanceMonitorReturn {
   currentMemory: number
   peakMemory: number
   renderTimes: number[]
+  networkLatency: number
+  averageNetworkLatency: number
+  dataThroughput: number
+  averageDataThroughput: number
   
   // Alerts
   alerts: PerformanceAlert[]
@@ -52,7 +60,10 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     fpsMonitoringInterval = 1000,
     memoryMonitoringInterval = 2000,
     renderTimeThreshold = 16.67, // 60fps = 16.67ms per frame
-    memoryThreshold = 100 // 100MB
+    memoryThreshold = 100, // 100MB
+    networkLatencyThreshold = 200, // 200ms
+    dataThroughputThreshold = 1000, // 1000 data points per second
+    networkMonitoringInterval = 5000 // 5 seconds
   } = config
 
   const dispatch = useAppDispatch()
@@ -64,14 +75,23 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
   const [currentMemory, setCurrentMemory] = useState(0)
   const [peakMemory, setPeakMemory] = useState(0)
   const [renderTimes, setRenderTimes] = useState<number[]>([])
+  const [networkLatency, setNetworkLatency] = useState(0)
+  const [averageNetworkLatency, setAverageNetworkLatency] = useState(0)
+  const [dataThroughput, setDataThroughput] = useState(0)
+  const [averageDataThroughput, setAverageDataThroughput] = useState(0)
   const [alerts, setAlerts] = useState<PerformanceAlert[]>([])
 
   // Refs for monitoring
   const memoryIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const networkIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const frameCountRef = useRef(0)
   const lastFrameTimeRef = useRef(performance.now())
   const fpsHistoryRef = useRef<number[]>([])
   const renderTimeHistoryRef = useRef<number[]>([])
+  const networkLatencyHistoryRef = useRef<number[]>([])
+  const dataThroughputHistoryRef = useRef<number[]>([])
+  const dataPointCountRef = useRef(0)
+  const lastDataCountTimeRef = useRef(performance.now())
   const gcObserverRef = useRef<PerformanceObserver | null>(null)
 
   // Add performance alert
@@ -198,6 +218,95 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     return result
   }, [dispatch, renderTimeThreshold, addAlert])
 
+  // Measure network latency
+  const measureNetworkLatency = useCallback(async (url: string = '/api/ping'): Promise<number> => {
+    try {
+      const start = performance.now()
+      
+      // Use fetch with a small request to measure latency
+      const response = await fetch(url, {
+        method: 'HEAD',
+        cache: 'no-cache',
+        mode: 'cors'
+      })
+      
+      const latency = performance.now() - start
+      
+      // Update network latency
+      setNetworkLatency(latency)
+      networkLatencyHistoryRef.current.push(latency)
+      
+      // Keep only last 60 measurements
+      if (networkLatencyHistoryRef.current.length > 60) {
+        networkLatencyHistoryRef.current = networkLatencyHistoryRef.current.slice(-60)
+      }
+      
+      // Calculate average latency
+      const avgLatency = networkLatencyHistoryRef.current.reduce((sum, l) => sum + l, 0) / networkLatencyHistoryRef.current.length
+      setAverageNetworkLatency(avgLatency)
+      
+      // Update store
+      dispatch(updateMetrics({ networkLatency: latency }))
+      
+      // Check for latency alerts
+      if (latency > networkLatencyThreshold) {
+        addAlert('network_latency', `High network latency: ${latency.toFixed(2)}ms`, latency, networkLatencyThreshold)
+      }
+      
+      return latency
+    } catch (error) {
+      console.warn('Network latency measurement failed:', error)
+      return -1
+    }
+  }, [dispatch, networkLatencyThreshold, addAlert])
+
+  // Track data throughput
+  const trackDataThroughput = useCallback((dataPointCount: number) => {
+    dataPointCountRef.current += dataPointCount
+    
+    const now = performance.now()
+    const deltaTime = now - lastDataCountTimeRef.current
+    
+    // Calculate throughput every second
+    if (deltaTime >= 1000) {
+      const throughput = (dataPointCountRef.current * 1000) / deltaTime
+      
+      setDataThroughput(throughput)
+      dataThroughputHistoryRef.current.push(throughput)
+      
+      // Keep only last 60 measurements
+      if (dataThroughputHistoryRef.current.length > 60) {
+        dataThroughputHistoryRef.current = dataThroughputHistoryRef.current.slice(-60)
+      }
+      
+      // Calculate average throughput
+      const avgThroughput = dataThroughputHistoryRef.current.reduce((sum, t) => sum + t, 0) / dataThroughputHistoryRef.current.length
+      setAverageDataThroughput(avgThroughput)
+      
+      // Update store
+      dispatch(updateMetrics({ dataPointsPerSecond: throughput }))
+      
+      // Check for throughput alerts
+      if (throughput > dataThroughputThreshold) {
+        addAlert('data_throughput', `High data throughput: ${throughput.toFixed(0)} points/sec`, throughput, dataThroughputThreshold)
+      }
+      
+      dataPointCountRef.current = 0
+      lastDataCountTimeRef.current = now
+    }
+  }, [dispatch, dataThroughputThreshold, addAlert])
+
+  // Monitor network performance
+  const monitorNetwork = useCallback(async () => {
+    if (!isMonitoring) return
+    
+    // Measure network latency
+    await measureNetworkLatency()
+    
+    // Schedule next measurement
+    setTimeout(monitorNetwork, networkMonitoringInterval)
+  }, [isMonitoring, measureNetworkLatency, networkMonitoringInterval])
+
   // Garbage collection monitoring
   const startGCMonitoring = useCallback(() => {
     if ('PerformanceObserver' in window) {
@@ -255,11 +364,16 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     // Start memory monitoring
     memoryIntervalRef.current = setInterval(measureMemory, memoryMonitoringInterval)
     
+    // Start network monitoring
+    dataPointCountRef.current = 0
+    lastDataCountTimeRef.current = performance.now()
+    monitorNetwork()
+    
     // Start GC monitoring
     startGCMonitoring()
     
     console.log('Performance monitoring started')
-  }, [isMonitoring, measureFps, measureMemory, memoryMonitoringInterval, startGCMonitoring])
+  }, [isMonitoring, measureFps, measureMemory, memoryMonitoringInterval, monitorNetwork, startGCMonitoring])
 
   // Stop monitoring
   const stop = useCallback(() => {
@@ -271,6 +385,11 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     if (memoryIntervalRef.current) {
       clearInterval(memoryIntervalRef.current)
       memoryIntervalRef.current = null
+    }
+    
+    if (networkIntervalRef.current) {
+      clearInterval(networkIntervalRef.current)
+      networkIntervalRef.current = null
     }
     
     // Stop GC monitoring
@@ -289,11 +408,18 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     setCurrentMemory(0)
     setPeakMemory(0)
     setRenderTimes([])
+    setNetworkLatency(0)
+    setAverageNetworkLatency(0)
+    setDataThroughput(0)
+    setAverageDataThroughput(0)
     setAlerts([])
     
     fpsHistoryRef.current = []
     renderTimeHistoryRef.current = []
+    networkLatencyHistoryRef.current = []
+    dataThroughputHistoryRef.current = []
     frameCountRef.current = 0
+    dataPointCountRef.current = 0
     
     console.log('Performance metrics reset')
   }, [])
@@ -315,8 +441,25 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
       if (memoryIntervalRef.current) {
         clearInterval(memoryIntervalRef.current)
       }
+      if (networkIntervalRef.current) {
+        clearInterval(networkIntervalRef.current)
+      }
     }
   }, [])
+
+  // Expose data throughput tracking for external use
+  useEffect(() => {
+    // Make trackDataThroughput available globally for WebSocket integration
+    if (typeof window !== 'undefined') {
+      (window as any).__performanceMonitor_trackDataThroughput = trackDataThroughput
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).__performanceMonitor_trackDataThroughput
+      }
+    }
+  }, [trackDataThroughput])
 
   return {
     // Monitoring control
@@ -327,6 +470,7 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     // Performance measurement
     measureRenderTime,
     measureAsyncRenderTime,
+    measureNetworkLatency,
     
     // Memory management
     triggerMemoryCleanup,
@@ -337,6 +481,10 @@ export function usePerformanceMonitor(config: PerformanceMonitorConfig = {}): Pe
     currentMemory,
     peakMemory,
     renderTimes,
+    networkLatency,
+    averageNetworkLatency,
+    dataThroughput,
+    averageDataThroughput,
     
     // Alerts
     alerts,
