@@ -3,38 +3,40 @@
  * 
  * This component provides a consistent layout structure for all pages,
  * ensuring the navigation is always present and properly styled.
+ * Now includes a global streaming control bar for unified data streaming.
  */
 
 'use client'
 
 import React from 'react'
 import { MainNavigation } from '@/components/navigation/MainNavigation'
-import { StreamingControls } from '@/components/streaming/StreamingControls'
+import { GlobalStreamingControl } from '@/components/streaming/GlobalStreamingControl'
 
 interface PageLayoutProps {
   children: React.ReactNode
   title?: string
   description?: string
-  showStreamingControls?: boolean
-  streamingControlsCompact?: boolean
   className?: string
+  hideGlobalStreaming?: boolean
 }
 
 export function PageLayout({
   children,
   title,
   description,
-  showStreamingControls = false,
-  streamingControlsCompact = false,
-  className = ''
+  className = '',
+  hideGlobalStreaming = false
 }: PageLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <MainNavigation />
       
+      {/* Global Streaming Control Bar - Visible on all pages */}
+      {!hideGlobalStreaming && <GlobalStreamingControl />}
+      
       <main className={`container mx-auto py-8 px-4 ${className}`}>
         {/* Page Header */}
-        {(title || description || showStreamingControls) && (
+        {(title || description) && (
           <div className="mb-8">
             <div className="flex items-start justify-between gap-6">
               <div className="flex-1">
@@ -47,15 +49,6 @@ export function PageLayout({
                   </p>
                 )}
               </div>
-              
-              {showStreamingControls && (
-                <div className="flex-shrink-0">
-                  <StreamingControls 
-                    compact={streamingControlsCompact}
-                    showAdvancedControls={!streamingControlsCompact}
-                  />
-                </div>
-              )}
             </div>
           </div>
         )}

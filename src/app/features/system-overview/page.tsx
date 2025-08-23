@@ -113,8 +113,6 @@ export default function SystemOverviewPage() {
     <PageLayout
       title="System Overview"
       description="Complete system architecture overview showing component relationships, data flow, performance metrics, and real-time system health monitoring."
-      showStreamingControls={true}
-      streamingControlsCompact={true}
     >
 
       <Tabs defaultValue="architecture" className="space-y-6">

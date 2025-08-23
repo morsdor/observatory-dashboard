@@ -67,21 +67,21 @@ const features = [
   },
   {
     id: 'websocket-integration',
-    title: 'WebSocket Integration',
-    description: 'Robust WebSocket client with reconnection, error handling, and data validation',
+    title: 'Unified Data Streaming',
+    description: 'Unified streaming system with WebSocket connections and automatic mock data fallback',
     icon: Network,
     path: '/features/websocket-integration',
     status: 'Complete',
-    highlights: ['Auto-reconnection', 'Error recovery', 'Connection monitoring', 'Data validation']
+    highlights: ['Global control', 'Auto-fallback', 'Unified API', 'Real-time monitoring']
   },
   {
     id: 'mock-data-system',
     title: 'Mock Data System',
-    description: 'Comprehensive data generation system with realistic patterns and scenarios',
+    description: 'Integrated data generation with realistic patterns, scenarios, and testing tools',
     icon: Settings,
     path: '/features/mock-data-system',
     status: 'Complete',
-    highlights: ['Pattern generation', 'Scenario simulation', 'Stress testing', 'Data validation']
+    highlights: ['Scenario testing', 'Data injection', 'Performance simulation', 'Global integration']
   },
   {
     id: 'system-overview',

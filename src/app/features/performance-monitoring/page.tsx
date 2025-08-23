@@ -12,8 +12,6 @@ export default function PerformanceMonitoringPage() {
     <PageLayout
       title="Performance Monitoring"
       description="Real-time performance metrics, network monitoring, and system diagnostics"
-      showStreamingControls={true}
-      streamingControlsCompact={true}
     >
       {/* Feature Badges */}
       <div className="flex flex-wrap gap-2 mb-8">

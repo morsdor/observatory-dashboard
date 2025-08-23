@@ -33,8 +33,6 @@ function RealTimeDashboardContent() {
     <PageLayout
       title="Real-Time Dashboard"
       description="Live data streaming with WebSocket connections and high-performance visualization"
-      showStreamingControls={true}
-      streamingControlsCompact={false}
     >
       {/* Connection Status Alert */}
       {isConnected && (
